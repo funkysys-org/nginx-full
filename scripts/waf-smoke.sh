@@ -135,6 +135,21 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   l_body=$(curl -s "$API/settings/ldap-auth" -H "Authorization: Bearer $admin_tok")
   echo "$l_body" | grep -q '"enabled"' || die "ldap-auth setting has no enabled flag: $l_body"
   pass "LDAP auth setting seeded and served"
+
+  # 11) 2FA policy (Wave 1): setting round-trip + admin EXEMPTION — flipping
+  # the policy on must not lock the operator out of their own panel.
+  p_code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$API/settings/2fa-policy" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"value":"enabled","meta":{"enabled":true}}')
+  [ "$p_code" = "200" ] || die "PUT /api/settings/2fa-policy -> $p_code (want 200)"
+  re_tok=$(curl -s -X POST "$API/tokens" -H 'Content-Type: application/json' \
+    -d "{\"identity\":\"$admin_email\",\"secret\":\"$admin_secret\"}" \
+    | sed -n 's/.*"token" *: *"\([^"]*\)".*/\1/p')
+  [ -n "$re_tok" ] || die "admin re-login failed with 2FA policy ON (admins must be exempt)"
+  curl -s -o /dev/null -X PUT "$API/settings/2fa-policy" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"value":"disabled","meta":{"enabled":false}}'
+  pass "2FA policy round-trip + admin exemption"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
