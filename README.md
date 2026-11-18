@@ -64,4 +64,7 @@ dependency.
   injected per request, exactly like stock). `overlay/patches/002-api-docs.patch`;
   same exposure class as the schema itself (both unauthenticated, like
   stock — bind :81 local if that bothers you).
+- **A4.2** ✅ (this) — schema debrand: `info.title` → "Proxywarden API",
+  description rewritten (no upstream link); `overlay/patches/003-schema-brand.patch`;
+  the live schema keeps serving version + server URL per request, stock.
 - **A3** — first sovereignty moves (brotli in-base, Node ours to choose)

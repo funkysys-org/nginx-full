@@ -88,6 +88,7 @@ API="$UI/api"
 s=$(code "$API/schema") || die "curl to /api/schema failed (exit $?)"
 [ "$s" = "200" ] || die "GET /api/schema -> $s (want 200)"
 curl -fsS "$API/schema" | grep -q '"openapi"' || die 'schema payload does not look like OpenAPI'
+curl -fsS "$API/schema" | grep -q 'Proxywarden API' || die 'schema info.title is not the branded one'
 s=$(code "$API/docs") || die "curl to /api/docs failed (exit $?)"
 [ "$s" = "200" ] || die "GET /api/docs -> $s (want 200)"
 curl -fsS "$API/docs" | grep -q 'swagger-ui' || die 'docs page does not embed Swagger UI'
