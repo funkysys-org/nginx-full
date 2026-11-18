@@ -351,7 +351,7 @@ index d843f9a..37d66cd 100644
  							"$ref": "../../../components/static-host-object.json#/properties/certificate_id"
  						},
 diff --git a/backend/templates/proxy_host.conf b/backend/templates/proxy_host.conf
-index d23ca46..9f6c511 100644
+index d23ca46..30c9561 100644
 --- a/backend/templates/proxy_host.conf
 +++ b/backend/templates/proxy_host.conf
 @@ -16,6 +16,13 @@ server {
@@ -360,7 +360,7 @@ index d23ca46..9f6c511 100644
  
 +{% if geoip2_enabled and country_deny %}
 +  # Country deny — armed by the geoip2 include (GeoLite2 DB present)
-+  if ($geoip2_data_country_code ~ ^({{ country_deny|join("|") }})$) {
++  if ($geoip2_data_country_code ~ ^({{ country_deny | join: "|" }})$) {
 +    return 403;
 +  }
 +{% endif %}
@@ -369,7 +369,7 @@ index d23ca46..9f6c511 100644
  proxy_set_header Upgrade $http_upgrade;
  proxy_set_header Connection $http_connection;
 diff --git a/backend/templates/static_host.conf b/backend/templates/static_host.conf
-index 3b962ff..0f94179 100644
+index 3b962ff..864c92b 100644
 --- a/backend/templates/static_host.conf
 +++ b/backend/templates/static_host.conf
 @@ -10,6 +10,13 @@ server {
@@ -378,7 +378,7 @@ index 3b962ff..0f94179 100644
  
 +{% if geoip2_enabled and country_deny %}
 +  # Country deny — armed by the geoip2 include (GeoLite2 DB present)
-+  if ($geoip2_data_country_code ~ ^({{ country_deny|join("|") }})$) {
++  if ($geoip2_data_country_code ~ ^({{ country_deny | join: "|" }})$) {
 +    return 403;
 +  }
 +{% endif %}
