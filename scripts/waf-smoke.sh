@@ -121,6 +121,13 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
     || die "static host did not serve its content: $sh_body"
   curl -s -o /dev/null -X DELETE "$API/nginx/static-hosts/$sh_id" -H "Authorization: Bearer $admin_tok"
   pass "static host: created via API, serves its content, deleted"
+
+  # 9) Metrics endpoint (A6): vts data live through the JWT-gated route
+  m_code=$(curl -s -o /dev/null -w '%{http_code}' "$API/reports/metrics" -H "Authorization: Bearer $admin_tok")
+  [ "$m_code" = "200" ] || die "GET /api/reports/metrics -> $m_code (want 200)"
+  m_body=$(curl -s "$API/reports/metrics" -H "Authorization: Bearer $admin_tok")
+  echo "$m_body" | grep -q 'serverZones' || die "metrics payload has no serverZones: $m_body"
+  pass "metrics endpoint live (vts through the JWT gate)"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
