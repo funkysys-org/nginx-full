@@ -750,10 +750,10 @@ index 0000000..1f7a7f9
 +}
 diff --git a/backend/migrations/20261118120000_static_host.js b/backend/migrations/20261118120000_static_host.js
 new file mode 100644
-index 0000000..83d92d1
+index 0000000..3ea2367
 --- /dev/null
 +++ b/backend/migrations/20261118120000_static_host.js
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,66 @@
 +import { migrate as logger } from "../logger.js";
 +
 +const migrateName = "static_host";
@@ -779,6 +779,8 @@ index 0000000..83d92d1
 +				table.json("domain_names").notNull();
 +				table.integer("certificate_id").notNull().unsigned().defaultTo(0);
 +				table.integer("ssl_forced").notNull().unsigned().defaultTo(0);
++				table.integer("hsts_enabled").notNull().unsigned().defaultTo(0);
++				table.integer("hsts_subdomains").notNull().unsigned().defaultTo(0);
 +				table.text("advanced_config").notNull().defaultTo("");
 +				table.json("meta").notNull();
 +				table.integer("http2_support").notNull().unsigned().defaultTo(0);
