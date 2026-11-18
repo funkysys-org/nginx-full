@@ -603,6 +603,151 @@ index c38213b..92b6c8e 100644
  						permission_streams: permissions.streams,
  						permission_access_lists: permissions.access_lists,
  						permission_certificates: permissions.certificates,
+diff --git a/backend/lib/access/static_hosts-create.json b/backend/lib/access/static_hosts-create.json
+new file mode 100644
+index 0000000..1f7a7f9
+--- /dev/null
++++ b/backend/lib/access/static_hosts-create.json
+@@ -0,0 +1,23 @@
++{
++	"anyOf": [
++		{
++			"$ref": "roles#/definitions/admin"
++		},
++		{
++			"type": "object",
++			"required": ["permission_static_hosts", "roles"],
++			"properties": {
++				"permission_static_hosts": {
++					"$ref": "perms#/definitions/manage"
++				},
++				"roles": {
++					"type": "array",
++					"items": {
++						"type": "string",
++						"enum": ["user"]
++					}
++				}
++			}
++		}
++	]
++}
+diff --git a/backend/lib/access/static_hosts-delete.json b/backend/lib/access/static_hosts-delete.json
+new file mode 100644
+index 0000000..1f7a7f9
+--- /dev/null
++++ b/backend/lib/access/static_hosts-delete.json
+@@ -0,0 +1,23 @@
++{
++	"anyOf": [
++		{
++			"$ref": "roles#/definitions/admin"
++		},
++		{
++			"type": "object",
++			"required": ["permission_static_hosts", "roles"],
++			"properties": {
++				"permission_static_hosts": {
++					"$ref": "perms#/definitions/manage"
++				},
++				"roles": {
++					"type": "array",
++					"items": {
++						"type": "string",
++						"enum": ["user"]
++					}
++				}
++			}
++		}
++	]
++}
+diff --git a/backend/lib/access/static_hosts-get.json b/backend/lib/access/static_hosts-get.json
+new file mode 100644
+index 0000000..41b3c21
+--- /dev/null
++++ b/backend/lib/access/static_hosts-get.json
+@@ -0,0 +1,23 @@
++{
++	"anyOf": [
++		{
++			"$ref": "roles#/definitions/admin"
++		},
++		{
++			"type": "object",
++			"required": ["permission_static_hosts", "roles"],
++			"properties": {
++				"permission_static_hosts": {
++					"$ref": "perms#/definitions/view"
++				},
++				"roles": {
++					"type": "array",
++					"items": {
++						"type": "string",
++						"enum": ["user"]
++					}
++				}
++			}
++		}
++	]
++}
+diff --git a/backend/lib/access/static_hosts-list.json b/backend/lib/access/static_hosts-list.json
+new file mode 100644
+index 0000000..41b3c21
+--- /dev/null
++++ b/backend/lib/access/static_hosts-list.json
+@@ -0,0 +1,23 @@
++{
++	"anyOf": [
++		{
++			"$ref": "roles#/definitions/admin"
++		},
++		{
++			"type": "object",
++			"required": ["permission_static_hosts", "roles"],
++			"properties": {
++				"permission_static_hosts": {
++					"$ref": "perms#/definitions/view"
++				},
++				"roles": {
++					"type": "array",
++					"items": {
++						"type": "string",
++						"enum": ["user"]
++					}
++				}
++			}
++		}
++	]
++}
+diff --git a/backend/lib/access/static_hosts-update.json b/backend/lib/access/static_hosts-update.json
+new file mode 100644
+index 0000000..1f7a7f9
+--- /dev/null
++++ b/backend/lib/access/static_hosts-update.json
+@@ -0,0 +1,23 @@
++{
++	"anyOf": [
++		{
++			"$ref": "roles#/definitions/admin"
++		},
++		{
++			"type": "object",
++			"required": ["permission_static_hosts", "roles"],
++			"properties": {
++				"permission_static_hosts": {
++					"$ref": "perms#/definitions/manage"
++				},
++				"roles": {
++					"type": "array",
++					"items": {
++						"type": "string",
++						"enum": ["user"]
++					}
++				}
++			}
++		}
++	]
++}
 diff --git a/backend/migrations/20261118120000_static_host.js b/backend/migrations/20261118120000_static_host.js
 new file mode 100644
 index 0000000..83d92d1

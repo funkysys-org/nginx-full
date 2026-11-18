@@ -137,7 +137,21 @@ for f in glob.glob('/npm-virgin/backend/schema/**/*.json', recursive=True):
             stack.extend(o)
 for ref, src in missing:
     print('MISSING $ref: ' + ref + '  (from ' + src + ')')
-raise SystemExit(1 if missing else 0)
+# Permission-schema gate: access.can("x:y") loads lib/access/x-y.json at
+# request time — a missing file 500s every call with that permission. Every
+# statically-used permission string in the patched backend must resolve.
+import re
+perm_missing = []
+for f in glob.glob('/npm-virgin/backend/internal/**/*.js', recursive=True) + glob.glob('/npm-virgin/backend/routes/**/*.js', recursive=True):
+    text = open(f, encoding='utf-8').read()
+    for m in re.finditer(r'\.can\(\s*["\']([a-z0-9_-]+:[a-z0-9_-]+)["\']', text):
+        perm = m.group(1)
+        schema = '/npm-virgin/backend/lib/access/' + perm.replace(':', '-') + '.json'
+        if not os.path.isfile(schema):
+            perm_missing.append((perm, f))
+for perm, src in perm_missing:
+    print('MISSING permission schema: ' + perm + '  (used in ' + src + ')')
+raise SystemExit(1 if missing or perm_missing else 0)
 PYEOF
 
 # --- stage 3: overlay onto our app image ------------------------------------
@@ -179,6 +193,7 @@ COPY --from=builder /npm-virgin/backend/internal/static-host.js /app/internal/
 COPY --from=builder /npm-virgin/backend/internal/host.js /app/internal/
 COPY --from=builder /npm-virgin/backend/internal/certificate.js /app/internal/
 COPY --from=builder /npm-virgin/backend/lib/access.js /app/lib/
+COPY --from=builder /npm-virgin/backend/lib/access/static_hosts-*.json /app/lib/access/
 COPY --from=builder /npm-virgin/backend/routes/nginx/static_hosts.js /app/routes/nginx/
 COPY --from=builder /npm-virgin/backend/templates/static_host.conf /app/templates/
 COPY --from=builder /npm-virgin/backend/migrations/20261118120000_static_host.js /app/migrations/
