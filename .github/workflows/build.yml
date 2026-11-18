@@ -70,11 +70,11 @@ jobs:
           docker buildx bake \
             --file docker/docker-bake.hcl \
             --progress=plain \
-            --set DOCKER_IMAGE="${IMAGE}" \
-            --set OPENRESTY_VERSION="${OPENRESTY_VERSION}" \
-            --set NODE_MAJOR="${NODE_MAJOR}" \
-            --set LUA_VERSION="${LUA_VERSION}" \
-            --set LUAROCKS_VERSION="${LUAROCKS_VERSION}" \
+            --var DOCKER_IMAGE="${IMAGE}" \
+            --var OPENRESTY_VERSION="${OPENRESTY_VERSION}" \
+            --var NODE_MAJOR="${NODE_MAJOR}" \
+            --var LUA_VERSION="${LUA_VERSION}" \
+            --var LUAROCKS_VERSION="${LUAROCKS_VERSION}" \
             --set "common.platforms=linux/amd64" \
             --set "certbot-node.output=type=docker" \
             certbot-node
