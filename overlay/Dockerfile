@@ -185,6 +185,10 @@ COPY modsec/ /etc/nginx/modsec/
 COPY --from=builder /npm-virgin/backend/internal/log-viewer.js /app/internal/
 COPY --from=builder /npm-virgin/backend/routes/logs.js /app/routes/
 COPY --from=builder /npm-virgin/backend/routes/main.js /app/routes/
+# 009 — WAF tuning API (Wave 3): the panel-side canary runbook
+COPY --from=builder /npm-virgin/backend/routes/waf.js /app/routes/
+COPY --from=builder /npm-virgin/backend/internal/waf.js /app/internal/
+COPY --from=builder /npm-virgin/backend/schema/paths/waf/tuning/ /app/schema/paths/waf/tuning/
 COPY --from=builder /npm-virgin/backend/routes/docs.js /app/routes/
 COPY --from=builder /npm-virgin/backend/schema/swagger.json /app/schema/swagger.json
 COPY --from=builder /npm-virgin/backend/models/static_host.js /app/models/

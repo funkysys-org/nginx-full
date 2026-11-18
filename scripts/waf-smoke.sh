@@ -177,6 +177,25 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"value":"disabled","meta":{"enabled":false}}'
   pass "2FA policy round-trip + admin exemption"
+
+  # 13) WAF tuning API (Wave 3): the canary-runbook CLI, panel-side
+  w_code=$(curl -s -o /dev/null -w '%{http_code}' "$API/waf/tuning" -H "Authorization: Bearer $admin_tok")
+  [ "$w_code" = "200" ] || die "GET /api/waf/tuning -> $w_code (want 200)"
+  wput=$(curl -s -X PUT "$API/waf/tuning" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"exclusions":[{"id":920350,"note":"smoke test exclusion"}],"paranoiaLevel":1}')
+  echo "$wput" | grep -q '"id":920350' || die "WAF tuning PUT did not return the exclusion: $wput"
+  execsvc 'grep -q "SecRuleRemoveById 920350;" /data/modsec/rules-after.conf' \
+    || die "rules-after.conf does not contain the exclusion"
+  execsvc 'grep -q "crs_paranoia_level=1" /data/modsec/rules-before.conf' \
+    || die "rules-before.conf does not contain the paranoia block"
+  wclr=$(curl -s -X PUT "$API/waf/tuning" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"exclusions":[],"paranoiaLevel":1}')
+  echo "$wclr" | grep -q '"exclusions":\[\]' || die "WAF tuning cleanup failed: $wclr"
+  execsvc 'grep -vq "SecRuleRemoveById" /data/modsec/rules-after.conf' \
+    || die "rules-after.conf still has exclusions after cleanup"
+  pass "WAF tuning API: exclusions + paranoia round-trip, files written"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
