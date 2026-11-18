@@ -101,6 +101,14 @@ RUN set -eu; \
        objs/ngx_http_vhost_traffic_status_module.so \
        objs/ngx_http_cache_purge_module.so /tmp/out/
 
+# Backend patch layer (Phase A4 — the F4 WAF-audit log source, moved here
+# from proxywarden): apply on the vendored virgin tree; the patched files
+# overlay /app in the final stage (same assembly upstream uses for backend).
+COPY vendor/npm/backend /npm-virgin/backend
+COPY overlay/patches/ /tmp/patches/
+RUN set -eu; cd /npm-virgin; \
+    for p in /tmp/patches/*.patch; do git apply --check "$p" && git apply "$p"; done
+
 # --- stage 3: overlay onto our app image ------------------------------------
 FROM ${WAF_BASE_IMAGE}
 ARG CRS_VERSION
@@ -124,6 +132,11 @@ COPY --from=builder /tmp/crs /usr/local/modsecurity/crs
 
 # engine config: paths match the /data/modsec layout seeded on first run
 COPY modsec/ /etc/nginx/modsec/
+
+# Backend overlay: the files touched by overlay/patches/ — same assembly as
+# upstream's `COPY backend /app` (the patched files overlay these paths).
+COPY --from=builder /npm-virgin/backend/internal/log-viewer.js /app/internal/
+COPY --from=builder /npm-virgin/backend/routes/logs.js /app/routes/
 
 # s6 oneshot that seeds /data/modsec tunables on first run.
 # (up files are EXECLINE; shell logic lives in scripts/modsec-seed.sh)

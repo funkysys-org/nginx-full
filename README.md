@@ -10,7 +10,7 @@ of our own from vendored sources at pinned commits.
 this repo builds the whole base+app+WAF stack:
   base    vendored docker-nginx-full (openresty + lua + all modules)
           → ghcr.io/funkysys-org/nginx-full:certbot-node-or…-node…
-    ↑ app assembly (NPM source @ v2.17.0: backend + frontend + rootfs + s6)
+    ↑ app assembly (NPM source @ v2.17.0, vendored: backend + frontend + rootfs + s6)
           → :2.17.0-or1.31.8.1
       ↑ WAF overlay (modsec + vts + purge — the former npm-modsec repo, merged)
           → :2.17.0-or1.31.8.1-modsec3.0.17-crs4.30.0-vts0.2.7-purge3.0.4
@@ -43,8 +43,18 @@ dependency.
 - **A0** ✅ — vendoring, pins, CI with parity gate
 - **A1** ✅ — app assembly (NPM source @ v2.17.0) on our base; app smoke
 - **A2** ✅ — cutover: npm-modsec built FROM our parity-gated base
-- **A2b** ✅ (this) — the WAF layer merged into this pipeline
+- **A2b** ✅ — the WAF layer merged into this pipeline
   (`overlay/Dockerfile` + `modsec/` + `rootfs-s6/` + WAF smoke); one repo,
   one pin set, one drift-check; the ABI assertion stays as an internal gate.
   `npm-modsec` is superseded — to be archived once proxywarden re-pins here
+- **A4** ✅ (this) — NPM source **vendored**: `vendor/npm/` is the pinned
+  tag `v2.17.0` (byte-faithful, `PROVENANCE.md`-gated: pins-sync asserts
+  `NPM_COMMIT` == the vendored sha). `app/Dockerfile` builds from `COPY
+  vendor/npm/` — **zero build-time clone of jc21's repo**. The backend
+  patch layer (WAF-audit as 4th log source, ex-proxywarden F4) moved into
+  `overlay/patches/` — applied build-time on the vendored tree, validated
+  by `git apply --check`, shipped via the same COPY assembly upstream uses.
+  The WAF image's backend is ours now; proxywarden is pure frontend.
+  Upstream NPM sync = human ritual: diff the new tag into `vendor/npm/` in
+  one reviewable commit + bump pins + re-validate the patch set
 - **A3** — first sovereignty moves (brotli in-base, Node ours to choose)

@@ -58,6 +58,8 @@ jobs:
           done
           df=$(sed -n 's/^ARG NPM_VERSION=//p' app/Dockerfile)
           [ "$NPM_VERSION" = "$df" ] || { echo "::error::PIN MISMATCH NPM_VERSION: workflow='${NPM_VERSION}' app/Dockerfile='${df}'"; exit 1; }
+          prov_sha=$(sed -n 's/^| Commit | \(.*\) |$/\1/p' vendor/npm/PROVENANCE.md | tr -d ' ')
+          [ "$NPM_COMMIT" = "$prov_sha" ] || { echo "::error::PROVENANCE MISMATCH: workflow NPM_COMMIT='${NPM_COMMIT}' vendored tree='${prov_sha}' — re-vendor or fix the pin"; exit 1; }
           for pin in MODSEC_VERSION MODSEC_NGINX_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION; do
             wf=$(printenv "$pin")
             df=$(sed -n "s/^ARG ${pin}=//p" overlay/Dockerfile)

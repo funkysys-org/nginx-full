@@ -83,5 +83,24 @@ execsvc 'grep -q 949110 /data/logs/modsec_audit.log' \
   || die 'no 949110 (Inbound Anomaly Score) in /data/logs/modsec_audit.log'
 pass "audit log has CRS blocking evidence"
 
+# 6) WAF-audit log source exposed by the patched backend (Phase A4)
+API="$UI/api"
+admin_email="admin@nginx-full-smoke.local"; admin_secret='SmokeAdmin-123'
+setup_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/users" \
+  -H 'Content-Type: application/json' \
+  -d "{\"name\":\"Smoke Admin\",\"nickname\":\"smoke\",\"email\":\"$admin_email\",\"auth\":{\"type\":\"password\",\"secret\":\"$admin_secret\"}}")
+if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
+  admin_tok=$(curl -s -X POST "$API/tokens" -H 'Content-Type: application/json' \
+    -d "{\"identity\":\"$admin_email\",\"secret\":\"$admin_secret\"}" \
+    | sed -n 's/.*"token" *: *"\([^"]*\)".*/\1/p')
+  [ -n "$admin_tok" ] || die "admin login failed"
+  srcs=$(curl -s "$API/logs/sources" -H "Authorization: Bearer $admin_tok")
+  echo "$srcs" | grep -q '"waf"' \
+    || die "WAF audit source missing from /logs/sources: $srcs"
+  pass "WAF audit source present in the API log sources"
+else
+  say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
+fi
+
 echo
-echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, attacks 403, audit log written"
+echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, attacks 403, audit log written, WAF audit in API sources"

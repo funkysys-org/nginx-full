@@ -1,7 +1,8 @@
-# NPM-equivalent app image on OUR base (Phase A1).
-# Assembles the NPM application from the pinned source tag exactly like
-# upstream's docker/Dockerfile — but on OUR nginx-full base, with the
-# frontend built inside the image (our proven chain).
+# NPM-equivalent app image on OUR base (Phase A1; Phase A4: source vendored).
+# Assembles the NPM application from the VENDORED pinned source tree
+# (vendor/npm/ — see its PROVENANCE.md) exactly like upstream's
+# docker/Dockerfile — but on OUR nginx-full base, with the frontend built
+# inside the image (our proven chain). No build-time clone of jc21's repo.
 #
 # Deliberate, documented deviations from upstream's assembly:
 #   - frontend built in stage `npmsrc` (upstream builds it outside the image
@@ -14,11 +15,9 @@
 ARG NPM_VERSION=2.17.0
 ARG BASE_IMAGE=ghcr.io/funkysys-org/nginx-full:certbot-node
 
-# ---- stage 1: NPM source at the pinned tag + frontend build --------------
+# ---- stage 1: vendored NPM source (pinned tag) + frontend build ------------
 FROM node:26 AS npmsrc
-ARG NPM_VERSION
-RUN git clone --depth 1 --branch "v${NPM_VERSION}" \
-      https://github.com/NginxProxyManager/nginx-proxy-manager.git /npm
+COPY vendor/npm/ /npm/
 RUN set -eu; cd /npm/frontend; \
     npm i -g yarn@1.22.22; \
     yarn install --frozen-lockfile; \
