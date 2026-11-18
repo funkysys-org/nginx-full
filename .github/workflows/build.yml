@@ -61,13 +61,22 @@ jobs:
         run: |
           set -eu
           cd vendor/docker-nginx-full
+          # Mirrors upstream's scripts/bake.sh invocation: explicit bake file
+          # from the project root + a dedicated buildx builder (container
+          # driver). We export to the docker store so the gates run BEFORE
+          # anything is published.
+          docker buildx create --name nginxfull || true
+          docker buildx use nginxfull
           docker buildx bake \
+            --file docker/docker-bake.hcl \
+            --progress=plain \
             --set DOCKER_IMAGE="${IMAGE}" \
             --set OPENRESTY_VERSION="${OPENRESTY_VERSION}" \
             --set NODE_MAJOR="${NODE_MAJOR}" \
             --set LUA_VERSION="${LUA_VERSION}" \
             --set LUAROCKS_VERSION="${LUAROCKS_VERSION}" \
             --set "common.platforms=linux/amd64" \
+            --set "certbot-node.output=type=docker" \
             certbot-node
           docker image inspect "${IMAGE}:certbot-node" >/dev/null
 
