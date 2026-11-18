@@ -37,7 +37,7 @@ RUN set -eu; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential g++ gcc make git wget ca-certificates xz-utils \
-      flex bison pkg-config autoconf automake libtool perl rsync \
+      flex bison pkg-config autoconf automake libtool perl rsync python3-minimal \
       libpcre2-dev libyajl-dev libxml2-dev libcurl4-openssl-dev liblmdb-dev \
       libssl-dev zlib1g-dev libmaxminddb-dev; \
     rm -rf /var/lib/apt/lists/*
@@ -110,7 +110,35 @@ RUN set -eu; \
 COPY vendor/npm/ /npm-virgin/
 COPY overlay/patches/ /tmp/patches/
 RUN set -eu; cd /npm-virgin; \
-    for p in /tmp/patches/*.patch; do git apply --check "$p" && git apply "$p"; done
+    for p in /tmp/patches/*.patch; do git apply --check "$p" && git apply "$p"; done; \
+    # Schema $ref integrity gate: the backend dereferences the schema at BOOT
+    # (getCompiledSchema) — a ref to a missing component crash-loops it. This
+    # walks every relative $ref in the patched tree and fails the build instead.
+    python3 - <<'PYEOF'
+import json, os, glob
+missing = []
+for f in glob.glob('/npm-virgin/backend/schema/**/*.json', recursive=True):
+    try:
+        d = json.load(open(f))
+    except Exception as e:
+        missing.append(('INVALID JSON: ' + str(e), f)); continue
+    stack = [d]
+    while stack:
+        o = stack.pop()
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k == '$ref' and isinstance(v, str) and v.startswith('.'):
+                    target = os.path.normpath(os.path.join(os.path.dirname(f), v.split('#')[0]))
+                    if not os.path.isfile(target):
+                        missing.append((v, f))
+                else:
+                    stack.append(v)
+        elif isinstance(o, list):
+            stack.extend(o)
+for ref, src in missing:
+    print('MISSING $ref: ' + ref + '  (from ' + src + ')')
+raise SystemExit(1 if missing else 0)
+PYEOF
 
 # --- stage 3: overlay onto our app image ------------------------------------
 FROM ${WAF_BASE_IMAGE}
@@ -155,6 +183,7 @@ COPY --from=builder /npm-virgin/backend/routes/nginx/static_hosts.js /app/routes
 COPY --from=builder /npm-virgin/backend/templates/static_host.conf /app/templates/
 COPY --from=builder /npm-virgin/backend/migrations/20261118120000_static_host.js /app/migrations/
 COPY --from=builder /npm-virgin/backend/schema/components/static-host-object.json /app/schema/components/
+COPY --from=builder /npm-virgin/backend/schema/components/static-host-list.json /app/schema/components/
 COPY --from=builder /npm-virgin/backend/schema/paths/nginx/static-hosts/ /app/schema/paths/nginx/static-hosts/
 # 004 also ships the stock main nginx.conf with ONE added include line:
 COPY --from=builder /npm-virgin/docker/rootfs/etc/nginx/nginx.conf /etc/nginx/nginx.conf

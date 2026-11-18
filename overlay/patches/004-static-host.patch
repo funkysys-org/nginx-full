@@ -1049,6 +1049,19 @@ index 0000000..fbabea3
 +	});
 +
 +export default router;
+diff --git a/backend/schema/components/static-host-list.json b/backend/schema/components/static-host-list.json
+new file mode 100644
+index 0000000..065bfff
+--- /dev/null
++++ b/backend/schema/components/static-host-list.json
+@@ -0,0 +1,7 @@
++{
++	"type": "array",
++	"description": "Static Hosts list",
++	"items": {
++		"$ref": "./static-host-object.json"
++	}
++}
 diff --git a/backend/schema/components/static-host-object.json b/backend/schema/components/static-host-object.json
 new file mode 100644
 index 0000000..b6c6940
@@ -1444,7 +1457,7 @@ index 0000000..30aeefd
 +}
 diff --git a/backend/schema/paths/nginx/static-hosts/hostID/put.json b/backend/schema/paths/nginx/static-hosts/hostID/put.json
 new file mode 100644
-index 0000000..7d1169d
+index 0000000..881e305
 --- /dev/null
 +++ b/backend/schema/paths/nginx/static-hosts/hostID/put.json
 @@ -0,0 +1,119 @@
@@ -1509,7 +1522,7 @@ index 0000000..7d1169d
 +							"$ref": "../../../../components/static-host-object.json#/properties/meta"
 +						},
 +						"content": {
-+							"$ref": "../../../components/static-host-object.json#/properties/content"
++							"$ref": "../../../../components/static-host-object.json#/properties/content"
 +						}
 +					}
 +				}
