@@ -91,4 +91,41 @@ dependency.
   layer, reconciled into node_modules in the overlay (the app image stays
   stock). Anti-enumeration preserved: every failure is the same generic
   auth error.
-- **A3** — first sovereignty moves (brotli in-base, Node ours to choose)
+- **A8** ✅ (this) — the operator wave: **2FA policy** (non-admin logins
+  blocked without TOTP; admins exempt by design), **document_root** for
+  static hosts (serve a mounted tree; path gate in the value-validator,
+  traversal-proof), **WAF tuning API** (exclusions + paranoia level, panel
+  side of the canary runbook), **WAF activity report** (audit-log
+  aggregation, per-user scoped), **geoblocking** (see below). Login rate
+  limiting was verified as already present upstream — not rebuilt.
+- **Geoblocking**: `country_deny` on proxy hosts and static hosts (ISO
+  3166-1 alpha-2 codes, schema + render-time gated). The geoip2 module is
+  compiled into the image (parity configure args); the lookup is ARMED by
+  the s6 `geoip2-arm` oneshot when a GeoLite2 Country DB exists at
+  `/data/geoip/GeoLite2-Country.mmdb` — without it, hosts with country
+  rules stay renderable and the field stays stored (dormant). To arm:
+  drop the DB there (or run the official updater sidecar) and restart:
+
+  ```yaml
+  # docker-compose.geoip.yml — docker compose -f docker-compose.yml -f docker-compose.geoip.yml up -d
+  services:
+    geoipupdate:
+      image: maxmindinc/geoipupdate:latest   # pin a tag in production
+      restart: unless-stopped
+      environment:
+        GEOIPDB_ACCOUNT_ID: ${MAXMIND_ACCOUNT_ID}
+        GEOIPDB_LICENSE_KEY: ${MAXMIND_LICENSE_KEY}
+        GEOIPDB_EDITION_IDS: GeoLite2-Country
+        GEOIPDB_FREQUENCY: 168               # weekly, hours
+      volumes:
+        - proxywarden_geoip:/usr/local/share/GeoIP
+    proxywarden:
+      volumes:
+        - proxywarden_geoip:/data/geoip:ro
+  volumes:
+    proxywarden_geoip: {}
+  ```
+
+  After arming (or at first boot with the DB in place), re-save hosts that
+  carry country rules so their config regenerates with the `if()` lines.
+

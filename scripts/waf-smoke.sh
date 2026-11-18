@@ -204,6 +204,35 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   [ "${wafr_n:-0}" -gt 0 ] || die "WAF report flagged=0 — the audit events from the attack checks did not aggregate: $wafr"
   echo "$wafr" | grep -q '"perRule"' || die "WAF report has no perRule"
   pass "WAF activity report live (audit events aggregated, scoped)"
+
+  # 15) Geoblocking (Wave 5): dormant without the GeoLite2 DB, armer idempotent
+  execsvc 'test ! -f /etc/nginx/conf.d/geoip2.conf' \
+    || die "geoip2.conf present without a DB (armer must remove it)"
+  execsvc 'sh /etc/s6-overlay/scripts/geoip2-arm.sh' >/dev/null
+  execsvc 'test ! -f /etc/nginx/conf.d/geoip2.conf' \
+    || die "armer created geoip2.conf without a DB"
+  # a host with country_deny is accepted and SERVES while dormant
+  gb_create=$(curl -s -X POST "$API/nginx/static-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["geo-smoke.test"],"content":"<h1>GeoDormantWorks</h1>","country_deny":["IT","CN"]}')
+  gb_id=$(echo "$gb_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  [ -n "$gb_id" ] || die "country_deny host creation failed (dormant mode must accept): $gb_create"
+  sleep 2
+  gb_body=$(curl -s -H 'Host: geo-smoke.test' http://127.0.0.1:80/)
+  echo "$gb_body" | grep -q 'GeoDormantWorks' \
+    || die "dormant country_deny host does not serve: $gb_body"
+  # a malformed code must be rejected by the schema
+  gb_bad=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/nginx/static-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["geo-bad.test"],"content":"x","country_deny":["IT) { return 200; }"]}')
+  [ "$gb_bad" = "400" ] || die "malformed country code accepted: $gb_bad (want 400)"
+  curl -s -o /dev/null -X DELETE "$API/nginx/static-hosts/$gb_id" -H "Authorization: Bearer $admin_tok"
+  # armer round-trip with a dummy DB file
+  execsvc 'mkdir -p /data/geoip && : > /data/geoip/GeoLite2-Country.mmdb && sh /etc/s6-overlay/scripts/geoip2-arm.sh >/dev/null && test -f /etc/nginx/conf.d/geoip2.conf' \
+    || die "armer did not write geoip2.conf with a DB present"
+  execsvc 'rm -f /data/geoip/GeoLite2-Country.mmdb && sh /etc/s6-overlay/scripts/geoip2-arm.sh >/dev/null && test ! -f /etc/nginx/conf.d/geoip2.conf' \
+    || die "armer did not remove geoip2.conf after the DB disappeared"
+  pass "geoblocking: dormant host renders + serves, malformed codes rejected, armer round-trips"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi

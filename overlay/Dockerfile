@@ -203,7 +203,16 @@ COPY --from=builder /npm-virgin/backend/lib/access/static_hosts-*.json /app/lib/
 COPY --from=builder /npm-virgin/backend/routes/nginx/static_hosts.js /app/routes/nginx/
 COPY --from=builder /npm-virgin/backend/routes/reports.js /app/routes/
 COPY --from=builder /npm-virgin/backend/templates/static_host.conf /app/templates/
+COPY --from=builder /npm-virgin/backend/templates/proxy_host.conf /app/templates/
 COPY --from=builder /npm-virgin/backend/migrations/20261118120000_static_host.js /app/migrations/
+# 011 — geoblocking (Wave 5): the country_deny plumbing (models, render
+# gate, shared schema prop, proxy-host schemas/migration)
+COPY --from=builder /npm-virgin/backend/models/proxy_host.js /app/models/
+COPY --from=builder /npm-virgin/backend/internal/nginx.js /app/internal/
+COPY --from=builder /npm-virgin/backend/schema/common.json /app/schema/
+COPY --from=builder /npm-virgin/backend/schema/components/proxy-host-object.json /app/schema/components/
+COPY --from=builder /npm-virgin/backend/schema/paths/nginx/proxy-hosts/ /app/schema/paths/nginx/proxy-hosts/
+COPY --from=builder /npm-virgin/backend/migrations/20261118200000_country_deny.js /app/migrations/
 COPY --from=builder /npm-virgin/backend/schema/components/static-host-object.json /app/schema/components/
 COPY --from=builder /npm-virgin/backend/schema/components/static-host-list.json /app/schema/components/
 COPY --from=builder /npm-virgin/backend/schema/paths/nginx/static-hosts/ /app/schema/paths/nginx/static-hosts/
@@ -243,7 +252,10 @@ COPY rootfs-s6/ /
 RUN set -eu; \
     printf 'oneshot\n' > /etc/s6-overlay/s6-rc.d/modsec-seed/type; \
     chmod +x /etc/s6-overlay/scripts/modsec-seed.sh; \
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/modsec-seed
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/modsec-seed; \
+    printf 'oneshot\n' > /etc/s6-overlay/s6-rc.d/geoip2-arm/type; \
+    chmod +x /etc/s6-overlay/scripts/geoip2-arm.sh; \
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/geoip2-arm
 
 # Build-time nginx -t gate: transient npm user (never shipped — the stock
 # boot's usermod branch has no -o; a pre-existing npm user kills the boot),
