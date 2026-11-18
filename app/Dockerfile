@@ -9,7 +9,10 @@
 #   - the `testca` root CA is NOT included: it exists for upstream's own
 #     HTTPS test harness, not for production function
 
+# Global ARGs — ONLY these are visible to FROM lines (stage 2 consumes
+# BASE_IMAGE; an ARG declared inside a stage is invisible to FROM).
 ARG NPM_VERSION=2.17.0
+ARG BASE_IMAGE=ghcr.io/funkysys-org/nginx-full:certbot-node
 
 # ---- stage 1: NPM source at the pinned tag + frontend build --------------
 FROM node:26 AS npmsrc
@@ -24,7 +27,6 @@ RUN set -eu; cd /npm/frontend; \
     test -f dist/index.html
 
 # ---- stage 2: assemble on our base -----------------------------------------
-ARG BASE_IMAGE=ghcr.io/funkysys-org/nginx-full:certbot-node
 FROM ${BASE_IMAGE}
 ARG NPM_VERSION
 ARG TARGETPLATFORM
