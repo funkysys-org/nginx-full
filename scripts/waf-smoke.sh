@@ -233,6 +233,23 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   execsvc 'rm -f /data/geoip/GeoLite2-Country.mmdb && sh /etc/s6-overlay/scripts/geoip2-arm.sh >/dev/null && test ! -f /etc/nginx/conf.d/geoip2.conf' \
     || die "armer did not remove geoip2.conf after the DB disappeared"
   pass "geoblocking: dormant host renders + serves, malformed codes rejected, armer round-trips"
+
+  # 16) max_body_size (Wave 6): proxy host carries the upload limit into
+  # its rendered config; the pattern gate rejects directive-injecting junk
+  mb_create=$(curl -s -X POST "$API/nginx/proxy-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["body-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"max_body_size":"32m"}')
+  mb_id=$(echo "$mb_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  [ -n "$mb_id" ] || die "proxy host with max_body_size creation failed: $mb_create"
+  sleep 2
+  execsvc "grep -q 'client_max_body_size 32m;' /data/nginx/proxy_host/$mb_id.conf" \
+    || die "the rendered proxy host config lacks client_max_body_size"
+  mb_bad=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/nginx/proxy-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["body-bad.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"max_body_size":"32m; return 200;"}')
+  [ "$mb_bad" = "400" ] || die "injected max_body_size accepted: $mb_bad (want 400)"
+  curl -s -o /dev/null -X DELETE "$API/nginx/proxy-hosts/$mb_id" -H "Authorization: Bearer $admin_tok"
+  pass "max_body_size: rendered into the host config, injection rejected"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
