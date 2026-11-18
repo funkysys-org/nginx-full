@@ -78,4 +78,17 @@ dependency.
   integration, and ONE added include line in the stock main nginx.conf.
   WAF rides along: `{{ advanced_config }}` in the template. WAF smoke gains
   the e2e: create via API → serves content on :80 → delete.
+- **A6** ✅ — Metrics: vts counters enabled at http level (image conf) + a
+  127.0.0.1-only display location on the admin server; the backend reads it
+  and re-serves it JWT-gated at `GET /reports/metrics`, **scoped by the
+  caller's host visibility** (the same scopeToOwnerOrAllowed semantics);
+  recharts UI (006/007 in proxywarden).
+- **A7** ✅ (this) — **LDAP auth**: login tries LOCAL first (an LDAP outage
+  can never lock out local admins), falls back to service-bind → search →
+  user-bind; first-login provisioning with the same user shape the admin
+  create flow produces; config in the `ldap-auth` setting (seeded disabled,
+  admin-edited); `ldapts@9.3.1` — the first runtime dep added by the patch
+  layer, reconciled into node_modules in the overlay (the app image stays
+  stock). Anti-enumeration preserved: every failure is the same generic
+  auth error.
 - **A3** — first sovereignty moves (brotli in-base, Node ours to choose)

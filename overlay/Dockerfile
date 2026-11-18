@@ -205,6 +205,22 @@ COPY --from=builder /npm-virgin/backend/schema/components/static-host-list.json 
 COPY --from=builder /npm-virgin/backend/schema/paths/nginx/static-hosts/ /app/schema/paths/nginx/static-hosts/
 COPY --from=builder /npm-virgin/backend/schema/paths/reports/hosts/get.json /app/schema/paths/reports/hosts/
 COPY --from=builder /npm-virgin/backend/schema/paths/reports/metrics/get.json /app/schema/paths/reports/metrics/
+COPY --from=builder /npm-virgin/backend/schema/paths/settings/settingID/ /app/schema/paths/settings/settingID/
+# 006 — LDAP auth: the new backend files...
+COPY --from=builder /npm-virgin/backend/internal/ldap.js /app/internal/
+COPY --from=builder /npm-virgin/backend/internal/token.js /app/internal/
+COPY --from=builder /npm-virgin/backend/internal/user.js /app/internal/
+COPY --from=builder /npm-virgin/backend/setup.js /app/setup.js
+# 006 — ...and the FIRST runtime dependency added by the patch layer: the
+# app image stays stock (its identity is the NPM-equivalent reference), so
+# ldapts lands HERE — patched package.json+yarn.lock, then a frozen-lockfile
+# reconcile of /app/node_modules (yarn adds only the delta).
+COPY --from=builder /npm-virgin/backend/package.json /app/package.json
+COPY --from=builder /npm-virgin/backend/yarn.lock /app/yarn.lock
+RUN set -eu; \
+    npm i -g yarn@1.22.22 >/dev/null 2>&1; \
+    yarn install --frozen-lockfile; \
+    npm rm -g yarn >/dev/null 2>&1 || true
 # 005 also ships the vts zone conf (http-level counters ON) and the patched
 # admin template (the 127.0.0.1-only /vts_status display location):
 COPY --from=builder /npm-virgin/docker/rootfs/etc/nginx/conf.d/proxywarden-vts-zone.conf /etc/nginx/conf.d/

@@ -128,6 +128,13 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   m_body=$(curl -s "$API/reports/metrics" -H "Authorization: Bearer $admin_tok")
   echo "$m_body" | grep -q 'serverZones' || die "metrics payload has no serverZones: $m_body"
   pass "metrics endpoint live (vts through the JWT gate)"
+
+  # 10) LDAP auth setting (A7): seeded by setup and served by the settings API
+  l_code=$(curl -s -o /dev/null -w '%{http_code}' "$API/settings/ldap-auth" -H "Authorization: Bearer $admin_tok")
+  [ "$l_code" = "200" ] || die "GET /api/settings/ldap-auth -> $l_code (want 200)"
+  l_body=$(curl -s "$API/settings/ldap-auth" -H "Authorization: Bearer $admin_tok")
+  echo "$l_body" | grep -q '"enabled"' || die "ldap-auth setting has no enabled flag: $l_body"
+  pass "LDAP auth setting seeded and served"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
