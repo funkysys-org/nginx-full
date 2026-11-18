@@ -134,7 +134,14 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   [ "$l_code" = "200" ] || die "GET /api/settings/ldap-auth -> $l_code (want 200)"
   l_body=$(curl -s "$API/settings/ldap-auth" -H "Authorization: Bearer $admin_tok")
   echo "$l_body" | grep -q '"enabled"' || die "ldap-auth setting has no enabled flag: $l_body"
-  pass "LDAP auth setting seeded and served"
+  # Round-trip the PUT too (the settings body is a per-setting anyOf — the
+  # minimal ldap payload is a subset of the 2fa-policy shape, exactly the
+  # overlap that oneOf rejected): write it back unchanged, expect 200.
+  lput=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$API/settings/ldap-auth" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"value":"disabled","meta":{"enabled":false,"url":"","bindDN":"","bindPassword":"","baseDN":"","filter":"(uid={username})","starttls":false,"provisionOnLogin":true,"defaultVisibility":"user"}}')
+  [ "$lput" = "200" ] || die "PUT /api/settings/ldap-auth -> $lput (want 200)"
+  pass "LDAP auth setting seeded, served, PUT round-trip clean"
 
   # 11) 2FA policy (Wave 1): setting round-trip + admin EXEMPTION — flipping
   # the policy on must not lock the operator out of their own panel.

@@ -46,7 +46,7 @@ index 0e7723b..806604e 100644
  			},
  			"required": true,
 diff --git a/backend/schema/paths/settings/settingID/put.json b/backend/schema/paths/settings/settingID/put.json
-index 374c756..ba9f84c 100644
+index 374c756..6b3b34b 100644
 --- a/backend/schema/paths/settings/settingID/put.json
 +++ b/backend/schema/paths/settings/settingID/put.json
 @@ -20,7 +20,8 @@
@@ -59,6 +59,15 @@ index 374c756..ba9f84c 100644
  				]
  			},
  			"required": true,
+@@ -34,7 +35,7 @@
+ 		"content": {
+ 			"application/json": {
+ 				"schema": {
+-					"oneOf": [
++					"anyOf": [
+ 						{
+ 							"type": "object",
+ 							"additionalProperties": false,
 @@ -144,6 +145,38 @@
  								"value": "disabled",
  								"meta": {}
