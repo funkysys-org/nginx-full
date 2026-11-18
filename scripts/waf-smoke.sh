@@ -196,6 +196,14 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   execsvc 'grep -vq "SecRuleRemoveById" /data/modsec/rules-after.conf' \
     || die "rules-after.conf still has exclusions after cleanup"
   pass "WAF tuning API: exclusions + paranoia round-trip, files written"
+
+  # 14) WAF activity report (Wave 4): the attacks from check 5 must show up
+  wafr=$(curl -s "$API/waf/report" -H "Authorization: Bearer $admin_tok")
+  echo "$wafr" | grep -q '"flagged"' || die "GET /api/waf/report has no counters: $wafr"
+  wafr_n=$(echo "$wafr" | sed -n 's/.*"flagged" *: *\([0-9]*\).*/\1/p')
+  [ "${wafr_n:-0}" -gt 0 ] || die "WAF report flagged=0 — the audit events from the attack checks did not aggregate: $wafr"
+  echo "$wafr" | grep -q '"perRule"' || die "WAF report has no perRule"
+  pass "WAF activity report live (audit events aggregated, scoped)"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
