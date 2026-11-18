@@ -1,6 +1,6 @@
 services:
   npm:
-    image: ${WAF_IMAGE:-npm-modsec:local}
+    image: ${WAF_IMAGE:-waf:local}
     restart: unless-stopped
     ports:
       - "80:80"

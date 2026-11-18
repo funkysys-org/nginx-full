@@ -1,10 +1,10 @@
 #!/bin/bash
 # Smoke test for the npm-modsec image against the compose stack
-# (docker-compose.test.yml must be UP before running this).
+# (docker-compose.waf-test.yml must be UP before running this).
 # Self-diagnosing: on ANY failure it prints compose ps + container logs.
 set -uo pipefail   # deliberately NO set -e: errors are handled explicitly
 
-COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.test.yml}
+COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.waf-test.yml}
 SVC=${COMPOSE_SERVICE:-npm}
 UI=${UI_URL:-http://127.0.0.1:8181}
 WAF=${WAF_URL:-http://127.0.0.1:8080}
@@ -25,7 +25,7 @@ execsvc() { docker compose -f "$COMPOSE_FILE" exec -T "$SVC" sh -c "$1"; }
 
 # 0) compose stack is actually up
 say "compose file: $COMPOSE_FILE (service: $SVC)"
-state=$(docker compose -f "$COMPOSE_FILE" ps 2>&1) || die "docker compose ps failed — wrong directory? run from the phase1/ dir"
+state=$(docker compose -f "$COMPOSE_FILE" ps 2>&1) || die "docker compose ps failed — run from the repo root"
 echo "$state"
 # NOTE: do NOT grep the human-readable ps table for 'running' — compose versions
 # print STATUS as 'Up 56 seconds' etc. Use the format-agnostic query instead.
