@@ -605,10 +605,10 @@ index c38213b..92b6c8e 100644
  						permission_certificates: permissions.certificates,
 diff --git a/backend/migrations/20261118120000_static_host.js b/backend/migrations/20261118120000_static_host.js
 new file mode 100644
-index 0000000..1ad775d
+index 0000000..83d92d1
 --- /dev/null
 +++ b/backend/migrations/20261118120000_static_host.js
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,64 @@
 +import { migrate as logger } from "../logger.js";
 +
 +const migrateName = "static_host";
@@ -663,11 +663,16 @@ index 0000000..1ad775d
 +	return knex.schema
 +		.dropTable("static_host")
 +		.then(() => {
-+			logger.info(`[${migrateName}] static_host Table dropped`);
++			return knex.schema.alterTable("user_permission", (table) => {
++				table.dropColumn("static_hosts");
++			});
++		})
++		.then(() => {
++			logger.info(`[${migrateName}] static_host Table dropped (user_permission.static_hosts removed)`);
 +		});
 +};
 +
-+export default { up, down };
++export { up, down };
 diff --git a/backend/models/certificate.js b/backend/models/certificate.js
 index 954255b..a9c503f 100644
 --- a/backend/models/certificate.js
