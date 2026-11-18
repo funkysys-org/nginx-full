@@ -83,8 +83,17 @@ execsvc 'grep -q 949110 /data/logs/modsec_audit.log' \
   || die 'no 949110 (Inbound Anomaly Score) in /data/logs/modsec_audit.log'
 pass "audit log has CRS blocking evidence"
 
-# 6) WAF-audit log source exposed by the patched backend (Phase A4)
+# 6) live API schema + Swagger UI docs page (backend patch layer)
 API="$UI/api"
+s=$(code "$API/schema") || die "curl to /api/schema failed (exit $?)"
+[ "$s" = "200" ] || die "GET /api/schema -> $s (want 200)"
+curl -fsS "$API/schema" | grep -q '"openapi"' || die 'schema payload does not look like OpenAPI'
+s=$(code "$API/docs") || die "curl to /api/docs failed (exit $?)"
+[ "$s" = "200" ] || die "GET /api/docs -> $s (want 200)"
+curl -fsS "$API/docs" | grep -q 'swagger-ui' || die 'docs page does not embed Swagger UI'
+pass "API schema live + Swagger UI docs served"
+
+# 7) WAF-audit log source exposed by the patched backend (Phase A4)
 admin_email="admin@nginx-full-smoke.local"; admin_secret='SmokeAdmin-123'
 setup_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/users" \
   -H 'Content-Type: application/json' \
@@ -103,4 +112,4 @@ else
 fi
 
 echo
-echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, attacks 403, audit log written, WAF audit in API sources"
+echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, attacks 403, audit log written, API docs served, WAF audit in API sources"

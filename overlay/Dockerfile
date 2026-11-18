@@ -135,8 +135,12 @@ COPY modsec/ /etc/nginx/modsec/
 
 # Backend overlay: the files touched by overlay/patches/ — same assembly as
 # upstream's `COPY backend /app` (the patched files overlay these paths).
+# Extend this list when a patch touches new files (001: log-viewer, logs;
+# 002: main, docs).
 COPY --from=builder /npm-virgin/backend/internal/log-viewer.js /app/internal/
 COPY --from=builder /npm-virgin/backend/routes/logs.js /app/routes/
+COPY --from=builder /npm-virgin/backend/routes/main.js /app/routes/
+COPY --from=builder /npm-virgin/backend/routes/docs.js /app/routes/
 
 # s6 oneshot that seeds /data/modsec tunables on first run.
 # (up files are EXECLINE; shell logic lives in scripts/modsec-seed.sh)

@@ -57,4 +57,11 @@ dependency.
   The WAF image's backend is ours now; proxywarden is pure frontend.
   Upstream NPM sync = human ritual: diff the new tag into `vendor/npm/` in
   one reviewable commit + bump pins + re-validate the patch set
+- **A4.1** ✅ — first backend patch-layer feature: `GET /api/docs` serves
+  a Swagger UI shell (`swagger-ui-dist@5.35.0` from unpkg, exact-pinned,
+  one-line bump) rendered against the LIVE OpenAPI 3.1 schema — which stays
+  the single source of truth at `GET /api/schema` (version + server URL
+  injected per request, exactly like stock). `overlay/patches/002-api-docs.patch`;
+  same exposure class as the schema itself (both unauthenticated, like
+  stock — bind :81 local if that bothers you).
 - **A3** — first sovereignty moves (brotli in-base, Node ours to choose)
