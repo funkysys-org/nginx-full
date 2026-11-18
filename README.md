@@ -39,7 +39,11 @@ dependency.
 ## Roadmap (Phase A)
 
 - **A0** ✅ — vendoring, pins, CI with parity gate
-- **A1** — parity build verified in CI; app assembly (NPM source @ v2.17.0:
-  backend + frontend build + rootfs) → the NPM-equivalent image, ours
+- **A1** ✅ (this) — app assembly: NPM source @ v2.17.0 (backend + frontend
+  built in-image + rootfs + s6) on our base →
+  `ghcr.io/funkysys-org/nginx-full:2.17.0-or1.31.8.1`; smoke: boots, stock
+  UI on :81, `nginx -t` clean. Deliberate deviations from upstream's
+  assembly: frontend built inside the image; the testca root CA is not
+  included (upstream's test harness, not production function)
 - **A2** — cutover: `npm-modsec` FROM ours; drift-check inverted
 - **A3** — first sovereignty moves (brotli in-base, Node ours to choose)

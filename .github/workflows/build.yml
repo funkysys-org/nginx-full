@@ -7,6 +7,7 @@ on:
       - 'vendor/**'
       - 'scripts/**'
       - 'parity/**'
+      - 'app/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
   schedule:
@@ -19,6 +20,7 @@ env:
   LUA_VERSION: '5.1.5'
   LUAROCKS_VERSION: '3.13.0'
   NPM_VERSION: '2.17.0'   # app-layer pin (A1) + parity reference
+  NPM_COMMIT: '5c8aec9bdeca0a2fb6a71e060ec598aa6eddd186'   # the v2.17.0 tag sha (label metadata)
   NODE_FLOOR: '26.12.1'  # Broccoli2Shell / CVE-2026-111497 fix line
   IMAGE: ghcr.io/funkysys-org/nginx-full
 
@@ -42,7 +44,9 @@ jobs:
             ' vendor/docker-nginx-full/docker/docker-bake.hcl)
             [ "$wf" = "$hcl" ] || { echo "::error::PIN MISMATCH ${pin}: workflow='${wf}' vendored-hcl='${hcl}'"; exit 1; }
           done
-          echo "pins in sync (workflow == vendored bake defaults)"
+          df=$(sed -n 's/^ARG NPM_VERSION=//p' app/Dockerfile)
+          [ "$NPM_VERSION" = "$df" ] || { echo "::error::PIN MISMATCH NPM_VERSION: workflow='${NPM_VERSION}' app/Dockerfile='${df}'"; exit 1; }
+          echo "pins in sync (workflow == vendored bake defaults + app/Dockerfile)"
 
   build:
     needs: pins-sync
@@ -98,12 +102,37 @@ jobs:
             exit 1
           fi
 
-      - name: Push (pins in the tag, no floating tags)
+      - name: Build the NPM-equivalent app image (A1)
         run: |
           set -eu
-          TAG="${IMAGE}:certbot-node-or${OPENRESTY_VERSION}-node${NODE_MAJOR}"
-          docker tag "${IMAGE}:certbot-node" "$TAG"
-          docker push "$TAG"
+          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          docker build \
+            --build-arg BASE_IMAGE="${IMAGE}:certbot-node" \
+            --build-arg NPM_VERSION="${NPM_VERSION}" \
+            --build-arg BUILD_COMMIT="${NPM_COMMIT}" \
+            --build-arg BUILD_DATE="$(date '+%Y-%m-%d %T %Z')" \
+            -t "${IMAGE}:${APP_TAG}" \
+            -f app/Dockerfile .
+
+      - name: App smoke (boots, stock UI served, nginx -t)
+        run: |
+          set -eu
+          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          docker run -d --name appsmoke -p 127.0.0.1:8081:81 "${IMAGE}:${APP_TAG}"
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8081/ >/dev/null 2>&1 && break; sleep 2; done
+          curl -fsS http://127.0.0.1:8081/ | grep -q 'Nginx Proxy Manager' \
+            || { echo '::error::UI not reachable / stock frontend not served'; docker logs appsmoke 2>&1 | tail -30; exit 1; }
+          docker exec appsmoke nginx -t
+          docker rm -f appsmoke >/dev/null
+          echo "APP SMOKE OK: NPM-equivalent image boots, stock UI on :81, nginx -t clean"
+
+      - name: Push (pins in the tags, no floating tags)
+        run: |
+          set -eu
+          BASE_TAG="${IMAGE}:certbot-node-or${OPENRESTY_VERSION}-node${NODE_MAJOR}"
+          docker tag "${IMAGE}:certbot-node" "$BASE_TAG"
+          docker push "$BASE_TAG"
+          docker push "${IMAGE}:${NPM_VERSION}-or${OPENRESTY_VERSION}"
 
   drift-check:
     if: github.event_name == 'schedule'
