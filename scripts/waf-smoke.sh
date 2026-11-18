@@ -108,9 +108,22 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   echo "$srcs" | grep -q '"waf"' \
     || die "WAF audit source missing from /logs/sources: $srcs"
   pass "WAF audit source present in the API log sources"
+
+  # 8) Static Hosts (Phase A5): create via API -> serves the content on :80 -> cleanup
+  sh_create=$(curl -s -X POST "$API/nginx/static-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["static-smoke.test"],"content":"<h1>StaticSmokeWorks</h1>"}')
+  sh_id=$(echo "$sh_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  [ -n "$sh_id" ] || die "static host creation failed: $sh_create"
+  sleep 2   # configure() reloads nginx — give it a beat
+  sh_body=$(curl -s -H 'Host: static-smoke.test' http://127.0.0.1:80/)
+  echo "$sh_body" | grep -q 'StaticSmokeWorks' \
+    || die "static host did not serve its content: $sh_body"
+  curl -s -o /dev/null -X DELETE "$API/nginx/static-hosts/$sh_id" -H "Authorization: Bearer $admin_tok"
+  pass "static host: created via API, serves its content, deleted"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
 
 echo
-echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, attacks 403, audit log written, API docs served, WAF audit in API sources"
+echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, attacks 403, audit log written, API docs served, WAF audit in API sources, static host e2e works"

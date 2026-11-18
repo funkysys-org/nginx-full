@@ -102,9 +102,12 @@ RUN set -eu; \
        objs/ngx_http_cache_purge_module.so /tmp/out/
 
 # Backend patch layer (Phase A4 — the F4 WAF-audit log source, moved here
-# from proxywarden): apply on the vendored virgin tree; the patched files
-# overlay /app in the final stage (same assembly upstream uses for backend).
-COPY vendor/npm/backend /npm-virgin/backend
+# from proxywarden; Phase A5 — Static Hosts, the first full-stack feature):
+# apply on the vendored virgin tree; the patched files overlay /app in the
+# final stage (same assembly upstream uses for backend). 004 also patches
+# the stock main nginx.conf (one include line) — the whole vendored tree is
+# copied here so backend/ and docker/ paths both resolve.
+COPY vendor/npm/ /npm-virgin/
 COPY overlay/patches/ /tmp/patches/
 RUN set -eu; cd /npm-virgin; \
     for p in /tmp/patches/*.patch; do git apply --check "$p" && git apply "$p"; done
@@ -136,12 +139,25 @@ COPY modsec/ /etc/nginx/modsec/
 # Backend overlay: the files touched by overlay/patches/ — same assembly as
 # upstream's `COPY backend /app` (the patched files overlay these paths).
 # Extend this list when a patch touches new files (001: log-viewer, logs;
-# 002: main, docs; 003: schema/swagger.json).
+# 002: main, docs; 003: schema/swagger.json; 004: the Static Hosts stack).
 COPY --from=builder /npm-virgin/backend/internal/log-viewer.js /app/internal/
 COPY --from=builder /npm-virgin/backend/routes/logs.js /app/routes/
 COPY --from=builder /npm-virgin/backend/routes/main.js /app/routes/
 COPY --from=builder /npm-virgin/backend/routes/docs.js /app/routes/
 COPY --from=builder /npm-virgin/backend/schema/swagger.json /app/schema/swagger.json
+COPY --from=builder /npm-virgin/backend/models/static_host.js /app/models/
+COPY --from=builder /npm-virgin/backend/models/certificate.js /app/models/
+COPY --from=builder /npm-virgin/backend/internal/static-host.js /app/internal/
+COPY --from=builder /npm-virgin/backend/internal/host.js /app/internal/
+COPY --from=builder /npm-virgin/backend/internal/certificate.js /app/internal/
+COPY --from=builder /npm-virgin/backend/lib/access.js /app/lib/
+COPY --from=builder /npm-virgin/backend/routes/nginx/static_hosts.js /app/routes/nginx/
+COPY --from=builder /npm-virgin/backend/templates/static_host.conf /app/templates/
+COPY --from=builder /npm-virgin/backend/migrations/20261118120000_static_host.js /app/migrations/
+COPY --from=builder /npm-virgin/backend/schema/components/static-host-object.json /app/schema/components/
+COPY --from=builder /npm-virgin/backend/schema/paths/nginx/static-hosts/ /app/schema/paths/nginx/static-hosts/
+# 004 also ships the stock main nginx.conf with ONE added include line:
+COPY --from=builder /npm-virgin/docker/rootfs/etc/nginx/nginx.conf /etc/nginx/nginx.conf
 
 # s6 oneshot that seeds /data/modsec tunables on first run.
 # (up files are EXECLINE; shell logic lives in scripts/modsec-seed.sh)

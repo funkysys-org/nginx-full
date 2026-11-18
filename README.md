@@ -64,7 +64,18 @@ dependency.
   injected per request, exactly like stock). `overlay/patches/002-api-docs.patch`;
   same exposure class as the schema itself (both unauthenticated, like
   stock — bind :81 local if that bothers you).
-- **A4.2** ✅ (this) — schema debrand: `info.title` → "Proxywarden API",
+- **A4.2** ✅ — schema debrand: `info.title` → "Proxywarden API",
   description rewritten (no upstream link); `overlay/patches/003-schema-brand.patch`;
   the live schema keeps serving version + server URL per request, stock.
+- **A5** ✅ (this) — **Static Hosts**: the 5th host family (proxy, redirect,
+  404, stream + **static**), a full-stack feature through the patch layer:
+  `overlay/patches/004-static-host.patch` — model + migration (first
+  migration of the layer; also adds `user_permission.static_hosts`), internal
+  service (DB is the source of truth; `/data/nginx/static_host/<id>/index.html`
+  is a derived artifact regenerated on every save/enable), route, nunjucks
+  template (`root` + `try_files /index.html =404`), 9 OpenAPI schema files
+  (endpoints visible in `/api/docs`), certificate/permissions/hostname-collision
+  integration, and ONE added include line in the stock main nginx.conf.
+  WAF rides along: `{{ advanced_config }}` in the template. WAF smoke gains
+  the e2e: create via API → serves content on :80 → delete.
 - **A3** — first sovereignty moves (brotli in-base, Node ours to choose)
