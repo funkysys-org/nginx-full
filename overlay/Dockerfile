@@ -206,6 +206,11 @@ COPY --from=builder /npm-virgin/backend/schema/paths/nginx/static-hosts/ /app/sc
 COPY --from=builder /npm-virgin/backend/schema/paths/reports/hosts/get.json /app/schema/paths/reports/hosts/
 COPY --from=builder /npm-virgin/backend/schema/paths/reports/metrics/get.json /app/schema/paths/reports/metrics/
 COPY --from=builder /npm-virgin/backend/schema/paths/settings/settingID/ /app/schema/paths/settings/settingID/
+# 008 — document_root (Wave 2): the value-validation lib (render-time gate),
+# the migration, and the already-copied template/service/schemas carry the
+# conditional root + the documentRoot pattern.
+COPY --from=builder /npm-virgin/backend/lib/nginx-values.js /app/lib/
+COPY --from=builder /npm-virgin/backend/migrations/20261118191000_static_host_document_root.js /app/migrations/
 # 006 — LDAP auth: the new backend files...
 COPY --from=builder /npm-virgin/backend/internal/ldap.js /app/internal/
 COPY --from=builder /npm-virgin/backend/internal/token.js /app/internal/

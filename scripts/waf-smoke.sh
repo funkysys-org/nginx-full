@@ -122,6 +122,26 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   curl -s -o /dev/null -X DELETE "$API/nginx/static-hosts/$sh_id" -H "Authorization: Bearer $admin_tok"
   pass "static host: created via API, serves its content, deleted"
 
+  # 12) Static host DOCUMENT ROOT (Wave 2): a mounted tree beats inline
+  # content — seed a real dir inside the container, point the host at it.
+  execsvc 'mkdir -p /data/docroot-smoke && echo DocRootWorks > /data/docroot-smoke/index.html'
+  dr_create=$(curl -s -X POST "$API/nginx/static-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["docroot-smoke.test"],"document_root":"/data/docroot-smoke"}')
+  dr_id=$(echo "$dr_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  [ -n "$dr_id" ] || die "document_root host creation failed: $dr_create"
+  sleep 2   # configure() reloads nginx — give it a beat
+  dr_body=$(curl -s -H 'Host: docroot-smoke.test' http://127.0.0.1:80/)
+  echo "$dr_body" | grep -q 'DocRootWorks' \
+    || die "document_root host did not serve the tree: $dr_body"
+  # and a traversal attempt must be rejected by the API schema (pattern gate)
+  dr_bad=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/nginx/static-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["docroot-bad.test"],"document_root":"/data/../etc"}')
+  [ "$dr_bad" = "400" ] || die "traversal document_root accepted: $dr_bad (want 400)"
+  curl -s -o /dev/null -X DELETE "$API/nginx/static-hosts/$dr_id" -H "Authorization: Bearer $admin_tok"
+  pass "static host document_root: serves a mounted tree; traversal rejected"
+
   # 9) Metrics endpoint (A6): vts data live through the JWT-gated route
   m_code=$(curl -s -o /dev/null -w '%{http_code}' "$API/reports/metrics" -H "Authorization: Bearer $admin_tok")
   [ "$m_code" = "200" ] || die "GET /api/reports/metrics -> $m_code (want 200)"
