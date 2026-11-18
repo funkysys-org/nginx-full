@@ -1,0 +1,108 @@
+def bakeArgs = ""
+def baseTag = "latest"
+def tagPrefix = ""
+
+pipeline {
+	triggers {
+		cron( env.BRANCH_NAME.equals('master') ? 'H 1 * * *' : '')
+	}
+	agent {
+		label 'docker-multiarch'
+	}
+	options {
+		buildDiscarder(logRotator(numToKeepStr: '5'))
+		disableConcurrentBuilds()
+		ansiColor('xterm')
+	}
+	environment {
+		BUILDX_NAME         = "nginxfull_${GIT_BRANCH}"
+		BRANCH_LOWER        = "${BRANCH_NAME.toLowerCase().replaceAll('/', '-')}"
+		OPENRESTY_VERSION   = '1.31.8.1'
+		LUA_VERSION         = '5.1.5'
+		LUAROCKS_VERSION    = '3.13.0'
+	}
+	stages {
+		stage('Environment') {
+			parallel {
+				stage('Docker Login') {
+					steps {
+						withCredentials([usernamePassword(credentialsId: 'jc21-dockerhub', passwordVariable: 'dpass', usernameVariable: 'duser')]) {
+							sh 'docker login -u "${duser}" -p "${dpass}"'
+						}
+					}
+				}
+				stage('!master') {
+					when {
+						not {
+							branch 'master'
+						}
+					}
+					steps {
+						script {
+							baseTag = "github-${BRANCH_LOWER}"
+							tagPrefix = "github-${BRANCH_LOWER}-"
+							bakeArgs = "--var BASE_TAG=\"${baseTag}\" --var TAG_PREFIX=\"${tagPrefix}\""
+						}
+					}
+				}
+			}
+		}
+		stage('Build') {
+			when {
+				not {
+					anyOf {
+						equals expected: 'UNSTABLE', actual: currentBuild.result
+						branch pattern: ".*dependabot.*", comparator: "REGEXP"
+					}
+				}
+			}
+			steps {
+				sh "./scripts/bake.sh --push ${bakeArgs}"
+			}
+		}
+		stage('Test') {
+			when {
+				not {
+					anyOf {
+						equals expected: 'UNSTABLE', actual: currentBuild.result
+						branch pattern: ".*dependabot.*", comparator: "REGEXP"
+					}
+				}
+			}
+			steps {
+				sh "scripts/ci/test.sh '${baseTag}'"
+				sh "scripts/ci/test.sh '${tagPrefix}certbot'"
+				sh "scripts/ci/test.sh '${tagPrefix}certbot-node'"
+				sh "scripts/ci/test.sh '${tagPrefix}acmesh'"
+				sh "scripts/ci/test.sh '${tagPrefix}acmesh-golang'"
+			}
+		}
+		stage('PR Comment') {
+			when {
+				allOf {
+					changeRequest()
+					not {
+						equals expected: 'UNSTABLE', actual: currentBuild.result
+					}
+				}
+			}
+			steps {
+				script {
+					def comment = pullRequest.comment("""Docker Image for build ${BUILD_NUMBER} is available on [DockerHub](https://cloud.docker.com/repository/docker/nginxproxymanager/nginx-full) as:
+
+- `nginxproxymanager/nginx-full:${baseTag}`
+- `nginxproxymanager/nginx-full:${tagPrefix}certbot`
+- `nginxproxymanager/nginx-full:${tagPrefix}certbot-node`
+- `nginxproxymanager/nginx-full:${tagPrefix}acmesh`
+- `nginxproxymanager/nginx-full:${tagPrefix}acmesh-golang`
+""")
+				}
+			}
+		}
+	}
+	post {
+		always {
+			printResult(true)
+		}
+	}
+}

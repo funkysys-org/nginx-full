@@ -1,0 +1,116 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'vendor/**'
+      - 'scripts/**'
+      - 'parity/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'   # weekly drift check
+
+env:
+  # OUR pins now — this repo owns the base build (Phase A sovereignty).
+  OPENRESTY_VERSION: '1.31.8.1'
+  NODE_MAJOR: '26'
+  LUA_VERSION: '5.1.5'
+  LUAROCKS_VERSION: '3.13.0'
+  NPM_VERSION: '2.17.0'   # app-layer pin (A1) + parity reference
+  NODE_FLOOR: '26.12.1'  # Broccoli2Shell / CVE-2026-111497 fix line
+  IMAGE: ghcr.io/funkysys-org/nginx-full
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pins-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert workflow pins match the vendored bake hcl
+        run: |
+          set -eu
+          for pin in OPENRESTY_VERSION NODE_MAJOR LUA_VERSION LUAROCKS_VERSION; do
+            wf=$(printenv "$pin")
+            hcl=$(awk -v p="$pin" '
+              $0 ~ "^variable \"" p "\" {" { inblock=1; next }
+              inblock && /default/ { gsub(/^.*default = "/, ""); gsub(/".*$/, ""); print; exit }
+            ' vendor/docker-nginx-full/docker/docker-bake.hcl)
+            [ "$wf" = "$hcl" ] || { echo "::error::PIN MISMATCH ${pin}: workflow='${wf}' vendored-hcl='${hcl}'"; exit 1; }
+          done
+          echo "pins in sync (workflow == vendored bake defaults)"
+
+  build:
+    needs: pins-sync
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the vendored base chain (certbot-node variant)
+        run: |
+          set -eu
+          cd vendor/docker-nginx-full
+          docker buildx bake \
+            --set DOCKER_IMAGE="${IMAGE}" \
+            --set OPENRESTY_VERSION="${OPENRESTY_VERSION}" \
+            --set NODE_MAJOR="${NODE_MAJOR}" \
+            --set LUA_VERSION="${LUA_VERSION}" \
+            --set LUAROCKS_VERSION="${LUAROCKS_VERSION}" \
+            --set "common.platforms=linux/amd64" \
+            certbot-node
+          docker image inspect "${IMAGE}:certbot-node" >/dev/null
+
+      - name: Parity gate (vs official image + committed oracle)
+        run: |
+          set -eu
+          bash scripts/parity-check.sh "${IMAGE}:certbot-node"
+
+      - name: Node security floor (we ship the Node now)
+        run: |
+          set -eu
+          node_v=$(docker run --rm --entrypoint /usr/bin/node "${IMAGE}:certbot-node" --version)
+          node_v=${node_v#v}
+          echo "base image Node: ${node_v} (floor: ${NODE_FLOOR})"
+          IFS='.' read -r a b c <<< "$node_v"
+          IFS='.' read -r x y z <<< "$NODE_FLOOR"
+          if [ "$((a*10000+b*100+c))" -lt "$((x*10000+y*100+z))" ]; then
+            echo "::error::Node ${node_v} below floor ${NODE_FLOOR} — bump NODE_MAJOR/re-vendor."
+            exit 1
+          fi
+
+      - name: Push (pins in the tag, no floating tags)
+        run: |
+          set -eu
+          TAG="${IMAGE}:certbot-node-or${OPENRESTY_VERSION}-node${NODE_MAJOR}"
+          docker tag "${IMAGE}:certbot-node" "$TAG"
+          docker push "$TAG"
+
+  drift-check:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Has upstream moved (openresty / NPM source)?
+        run: |
+          set -eu
+          or_latest=$(git ls-remote --tags --refs https://github.com/openresty/openresty 'refs/tags/v*' \
+            | sed 's|.*refs/tags/v||' | sort -V | tail -1)
+          npm_latest=$(git ls-remote --tags --refs https://github.com/NginxProxyManager/nginx-proxy-manager 'refs/tags/v2*' \
+            | sed 's|.*refs/tags/v||' | sort -V | tail -1)
+          echo "openresty latest: ${or_latest} | our pin: ${OPENRESTY_VERSION}"
+          echo "NPM source latest: ${npm_latest} | our pin: ${NPM_VERSION}"
+          if [ "$or_latest" != "$OPENRESTY_VERSION" ] || [ "$npm_latest" != "$NPM_VERSION" ]; then
+            echo "::error::UPSTREAM MOVED (openresty ${or_latest} / NPM ${npm_latest}). Pins are a human decision — bump in workflow env AND vendored bake defaults, rebuild, re-run the parity gate."
+            exit 1
+          fi
+          echo "no drift — pins current"
