@@ -164,6 +164,34 @@ index 7bdaa78..b113029 100644
  			return {
  				hostname: hostname,
  				is_taken: is_taken,
+diff --git a/backend/internal/report.js b/backend/internal/report.js
+index 547af3e..765a1a0 100644
+--- a/backend/internal/report.js
++++ b/backend/internal/report.js
+@@ -1,6 +1,7 @@
+ import internalDeadHost from "./dead-host.js";
+ import internalProxyHost from "./proxy-host.js";
+ import internalRedirectionHost from "./redirection-host.js";
++import internalStaticHost from "./static-host.js";
+ import internalStream from "./stream.js";
+ 
+ const internalReport = {
+@@ -23,6 +24,7 @@ const internalReport = {
+ 					internalRedirectionHost.getCount(userId, access_data.permission_visibility),
+ 					internalStream.getCount(userId, access_data.permission_visibility),
+ 					internalDeadHost.getCount(userId, access_data.permission_visibility),
++					internalStaticHost.getCount(userId, access_data.permission_visibility),
+ 				];
+ 
+ 				return Promise.all(promises);
+@@ -33,6 +35,7 @@ const internalReport = {
+ 					redirection: counts.shift(),
+ 					stream: counts.shift(),
+ 					dead: counts.shift(),
++					static: counts.shift(),
+ 				};
+ 			});
+ 	},
 diff --git a/backend/internal/static-host.js b/backend/internal/static-host.js
 new file mode 100644
 index 0000000..06b68aa
@@ -1850,6 +1878,43 @@ index 0000000..df3859c
 +		}
 +	}
 +}
+diff --git a/backend/schema/paths/reports/hosts/get.json b/backend/schema/paths/reports/hosts/get.json
+index 682a97b..0d02c8c 100644
+--- a/backend/schema/paths/reports/hosts/get.json
++++ b/backend/schema/paths/reports/hosts/get.json
+@@ -1,7 +1,9 @@
+ {
+ 	"operationId": "reportsHosts",
+ 	"summary": "Report on Host Statistics",
+-	"tags": ["reports"],
++	"tags": [
++		"reports"
++	],
+ 	"security": [
+ 		{
+ 			"bearerAuth": []
+@@ -18,7 +20,8 @@
+ 								"proxy": 20,
+ 								"redirection": 1,
+ 								"stream": 0,
+-								"dead": 1
++								"dead": 1,
++								"static": 0
+ 							}
+ 						}
+ 					},
+@@ -44,6 +47,11 @@
+ 								"type": "integer",
+ 								"description": "404 Hosts Count",
+ 								"example": 3
++							},
++							"static": {
++								"type": "integer",
++								"description": "Static Hosts Count",
++								"example": 0
+ 							}
+ 						}
+ 					}
 diff --git a/backend/schema/swagger.json b/backend/schema/swagger.json
 index fd0dc33..f50b896 100644
 --- a/backend/schema/swagger.json

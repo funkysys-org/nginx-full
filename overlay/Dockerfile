@@ -192,6 +192,7 @@ COPY --from=builder /npm-virgin/backend/models/certificate.js /app/models/
 COPY --from=builder /npm-virgin/backend/internal/static-host.js /app/internal/
 COPY --from=builder /npm-virgin/backend/internal/host.js /app/internal/
 COPY --from=builder /npm-virgin/backend/internal/certificate.js /app/internal/
+COPY --from=builder /npm-virgin/backend/internal/report.js /app/internal/
 COPY --from=builder /npm-virgin/backend/lib/access.js /app/lib/
 COPY --from=builder /npm-virgin/backend/lib/access/static_hosts-*.json /app/lib/access/
 COPY --from=builder /npm-virgin/backend/routes/nginx/static_hosts.js /app/routes/nginx/
@@ -200,6 +201,7 @@ COPY --from=builder /npm-virgin/backend/migrations/20261118120000_static_host.js
 COPY --from=builder /npm-virgin/backend/schema/components/static-host-object.json /app/schema/components/
 COPY --from=builder /npm-virgin/backend/schema/components/static-host-list.json /app/schema/components/
 COPY --from=builder /npm-virgin/backend/schema/paths/nginx/static-hosts/ /app/schema/paths/nginx/static-hosts/
+COPY --from=builder /npm-virgin/backend/schema/paths/reports/hosts/get.json /app/schema/paths/reports/hosts/
 # 004 also ships the stock main nginx.conf with ONE added include line:
 COPY --from=builder /npm-virgin/docker/rootfs/etc/nginx/nginx.conf /etc/nginx/nginx.conf
 
