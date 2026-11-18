@@ -118,12 +118,19 @@ jobs:
         run: |
           set -eu
           APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
-          docker run -d --name appsmoke -p 127.0.0.1:8081:81 "${IMAGE}:${APP_TAG}"
-          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8081/ >/dev/null 2>&1 && break; sleep 2; done
+          # The stock prepare service HARD-FAILS unless both /data and
+          # /etc/letsencrypt are mounts — run the image like the real world does.
+          docker volume create appsmoke-data >/dev/null
+          docker volume create appsmoke-le >/dev/null
+          docker run -d --name appsmoke -p 127.0.0.1:8081:81 \
+            -v appsmoke-data:/data -v appsmoke-le:/etc/letsencrypt \
+            "${IMAGE}:${APP_TAG}"
+          for i in $(seq 1 90); do curl -fsS http://127.0.0.1:8081/ >/dev/null 2>&1 && break; sleep 2; done
           curl -fsS http://127.0.0.1:8081/ | grep -q 'Nginx Proxy Manager' \
             || { echo '::error::UI not reachable / stock frontend not served'; docker logs appsmoke 2>&1 | tail -30; exit 1; }
           docker exec appsmoke nginx -t
           docker rm -f appsmoke >/dev/null
+          docker volume rm appsmoke-data appsmoke-le >/dev/null
           echo "APP SMOKE OK: NPM-equivalent image boots, stock UI on :81, nginx -t clean"
 
       - name: Push (pins in the tags, no floating tags)
