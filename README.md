@@ -7,12 +7,14 @@ of our own from vendored sources at pinned commits.
 ## Layering
 
 ```
-this repo   = vendored docker-nginx-full (openresty + lua + all modules)
-              + certbot + node   →  ghcr.io/funkysys-org/nginx-full:certbot-node-or…-node…
-      ↑ FROM (A1: app assembly — NPM backend+frontend from pinned source tag v2.17.0)
-npm-modsec  (overlay: modsec + vts + purge)
-      ↑ FROM
-proxywarden (product: branded UI, WAF switches, hardening)
+this repo builds the whole base+app+WAF stack:
+  base    vendored docker-nginx-full (openresty + lua + all modules)
+          → ghcr.io/funkysys-org/nginx-full:certbot-node-or…-node…
+    ↑ app assembly (NPM source @ v2.17.0: backend + frontend + rootfs + s6)
+          → :2.17.0-or1.31.8.1
+      ↑ WAF overlay (modsec + vts + purge — the former npm-modsec repo, merged)
+          → :2.17.0-or1.31.8.1-modsec3.0.17-crs4.30.0-vts0.2.7-purge3.0.4
+proxywarden (product: branded UI, WAF switches, hardening) FROMs the WAF image
 ```
 
 ## What this repo guarantees
@@ -39,11 +41,10 @@ dependency.
 ## Roadmap (Phase A)
 
 - **A0** ✅ — vendoring, pins, CI with parity gate
-- **A1** ✅ (this) — app assembly: NPM source @ v2.17.0 (backend + frontend
-  built in-image + rootfs + s6) on our base →
-  `ghcr.io/funkysys-org/nginx-full:2.17.0-or1.31.8.1`; smoke: boots, stock
-  UI on :81, `nginx -t` clean. Deliberate deviations from upstream's
-  assembly: frontend built inside the image; the testca root CA is not
-  included (upstream's test harness, not production function)
-- **A2** — cutover: `npm-modsec` FROM ours; drift-check inverted
+- **A1** ✅ — app assembly (NPM source @ v2.17.0) on our base; app smoke
+- **A2** ✅ — cutover: npm-modsec built FROM our parity-gated base
+- **A2b** ✅ (this) — the WAF layer merged into this pipeline
+  (`overlay/Dockerfile` + `modsec/` + `rootfs-s6/` + WAF smoke); one repo,
+  one pin set, one drift-check; the ABI assertion stays as an internal gate.
+  `npm-modsec` is superseded — to be archived once proxywarden re-pins here
 - **A3** — first sovereignty moves (brotli in-base, Node ours to choose)

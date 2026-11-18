@@ -8,6 +8,11 @@ on:
       - 'scripts/**'
       - 'parity/**'
       - 'app/**'
+      - 'overlay/**'
+      - 'modsec/**'
+      - 'rootfs-s6/**'
+      - 'test-runtime/**'
+      - 'docker-compose.waf-test.yml'
       - '.github/workflows/build.yml'
   workflow_dispatch:
   schedule:
@@ -21,6 +26,13 @@ env:
   LUAROCKS_VERSION: '3.13.0'
   NPM_VERSION: '2.17.0'   # app-layer pin (A1) + parity reference
   NPM_COMMIT: '5c8aec9bdeca0a2fb6a71e060ec598aa6eddd186'   # the v2.17.0 tag sha (label metadata)
+  # WAF layer (A2b — the former npm-modsec repo, merged here)
+  MODSEC_VERSION: '3.0.17'
+  MODSEC_NGINX_VERSION: '1.0.4'
+  CRS_VERSION: 'v4.30.0'
+  VTS_VERSION: 'v0.2.7'
+  CACHE_PURGE_VERSION: '3.0.4'
+  WAF_BUILD_JOBS: '4'
   NODE_FLOOR: '26.12.1'  # Broccoli2Shell / CVE-2026-111497 fix line
   IMAGE: ghcr.io/funkysys-org/nginx-full
 
@@ -46,13 +58,18 @@ jobs:
           done
           df=$(sed -n 's/^ARG NPM_VERSION=//p' app/Dockerfile)
           [ "$NPM_VERSION" = "$df" ] || { echo "::error::PIN MISMATCH NPM_VERSION: workflow='${NPM_VERSION}' app/Dockerfile='${df}'"; exit 1; }
-          echo "pins in sync (workflow == vendored bake defaults + app/Dockerfile)"
+          for pin in MODSEC_VERSION MODSEC_NGINX_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION; do
+            wf=$(printenv "$pin")
+            df=$(sed -n "s/^ARG ${pin}=//p" overlay/Dockerfile)
+            [ "$wf" = "$df" ] || { echo "::error::PIN MISMATCH ${pin}: workflow='${wf}' overlay/Dockerfile='${df}'"; exit 1; }
+          done
+          echo "pins in sync (workflow == vendored bake defaults + app/Dockerfile + overlay/Dockerfile)"
 
   build:
     needs: pins-sync
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -133,6 +150,32 @@ jobs:
           docker volume rm appsmoke-data appsmoke-le >/dev/null
           echo "APP SMOKE OK: NPM-equivalent image boots, stock UI on :81, nginx -t clean"
 
+      - name: Build the WAF overlay image (A2b)
+        run: |
+          set -eu
+          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}"
+          docker build -f overlay/Dockerfile \
+            --build-arg WAF_BASE_IMAGE="${IMAGE}:${APP_TAG}" \
+            --build-arg OPENRESTY_VERSION \
+            --build-arg MODSEC_VERSION \
+            --build-arg MODSEC_NGINX_VERSION \
+            --build-arg CRS_VERSION \
+            --build-arg VTS_VERSION \
+            --build-arg CACHE_PURGE_VERSION \
+            --build-arg BUILD_JOBS="${WAF_BUILD_JOBS}" \
+            -t "${IMAGE}:${WAF_TAG}" .
+
+      - name: WAF smoke (payload matrix)
+        run: |
+          set -eu
+          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}"
+          WAF_IMAGE="${IMAGE}:${WAF_TAG}" docker compose -f docker-compose.waf-test.yml up -d
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8181/ >/dev/null 2>&1 && break; sleep 2; done
+          bash scripts/waf-smoke.sh
+          docker compose -f docker-compose.waf-test.yml down -v
+
       - name: Push (pins in the tags, no floating tags)
         run: |
           set -eu
@@ -140,6 +183,9 @@ jobs:
           docker tag "${IMAGE}:certbot-node" "$BASE_TAG"
           docker push "$BASE_TAG"
           docker push "${IMAGE}:${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}"
+          docker push "${IMAGE}:${WAF_TAG}"
 
   drift-check:
     if: github.event_name == 'schedule'
