@@ -73,7 +73,13 @@ RUN set -eu; \
     git clone https://github.com/google/ngx_brotli /tmp/ngx_brotli; \
     git -C /tmp/ngx_brotli checkout ${BROTLI_MODULE_SHA}; \
     git -C /tmp/ngx_brotli submodule update --init --depth 1; \
-    git -C /tmp/ngx_brotli/deps/brotli checkout ${BROTLI_VERSION}
+    git -C /tmp/ngx_brotli/deps/brotli fetch --depth 1 origin tag ${BROTLI_VERSION}; \
+    git -C /tmp/ngx_brotli/deps/brotli checkout ${BROTLI_VERSION}; \
+    # the repo carries TWO tags on this commit (v1.2.1 and go/brotli/v1.2.1) —
+    # verify the COMMIT identity, not the tag string describe picks
+    [ "$(git -C /tmp/ngx_brotli/deps/brotli rev-parse HEAD)" \
+      = "$(git -C /tmp/ngx_brotli/deps/brotli rev-parse "${BROTLI_VERSION}^{}")" ] \
+      || { echo "FATAL: deps/brotli is not at ${BROTLI_VERSION} — refusing to build"; exit 1; }
 
 # openresty source (release tarball) at the pinned version; geoip2 at the
 # literal path baked into the base binary's configure arguments.
