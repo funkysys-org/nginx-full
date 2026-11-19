@@ -269,6 +269,20 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   [ "$mb_bad" = "400" ] || die "injected max_body_size accepted: $mb_bad (want 400)"
   curl -s -o /dev/null -X DELETE "$API/nginx/proxy-hosts/$mb_id" -H "Authorization: Bearer $admin_tok"
   pass "max_body_size: rendered into the host config, injection rejected"
+
+  # 17) Debrand gates (Wave 2): the shipped image and the served schema
+  #     carry ZERO upstream references (labels, description, error strings)
+  img_labels=$(docker inspect "$WAF_IMAGE" --format '{{json .Config.Labels}}' 2>/dev/null \
+    || docker inspect "ghcr.io/funkysys-org/nginx-full:${WAF_TAG:-dev}" --format '{{json .Config.Labels}}')
+  echo "$img_labels" | grep -q 'nginxproxymanager\|jc21' \
+    && die "upstream references in the image LABELS: $img_labels"
+  schema_body=$(curl -s "$API/schema" -H "Authorization: Bearer $admin_tok")
+  echo "$schema_body" | grep -q 'nginxproxymanager\|Nginx Proxy Manager' \
+    && die "upstream references in the served API schema: $(echo "$schema_body" | head -c 200)"
+  tpl_name=$(execsvc 'grep -h "^server_name" /etc/nginx/conf.d/production.conf.template 2>/dev/null | head -1' || true)
+  echo "$tpl_name" | grep -q 'nginxproxymanager' \
+    && die "the admin template still says nginxproxymanager: $tpl_name"
+  pass "debrand: image labels + API schema + admin template clean"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi

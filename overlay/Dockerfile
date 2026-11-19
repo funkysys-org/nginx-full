@@ -211,6 +211,9 @@ COPY --from=builder /npm-virgin/backend/routes/main.js /app/routes/
 COPY --from=builder /npm-virgin/backend/routes/waf.js /app/routes/
 COPY --from=builder /npm-virgin/backend/internal/waf.js /app/internal/
 COPY --from=builder /npm-virgin/backend/schema/paths/waf/ /app/schema/paths/waf/
+# 013 — debrand residuals: db.js (error string) rides the overlay; the
+# swagger.json and production.conf.template edits land via the existing COPYs
+COPY --from=builder /npm-virgin/backend/db.js /app/
 COPY --from=builder /npm-virgin/backend/routes/docs.js /app/routes/
 COPY --from=builder /npm-virgin/backend/schema/swagger.json /app/schema/swagger.json
 COPY --from=builder /npm-virgin/backend/models/static_host.js /app/models/

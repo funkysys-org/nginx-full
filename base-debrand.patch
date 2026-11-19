@@ -1,0 +1,35 @@
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index 06ff042..2f59a95 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -102,7 +102,7 @@ RUN apt-get update \
+ LABEL org.label-schema.schema-version="1.0" \
+ 	org.label-schema.license="MIT" \
+ 	org.label-schema.name="nginx-full" \
+-	org.label-schema.description="A base image for use by Nginx Proxy Manager" \
+-	org.label-schema.url="https://github.com/nginxproxymanager/docker-nginx-full" \
+-	org.label-schema.vcs-url="https://github.com/nginxproxymanager/docker-nginx-full.git" \
+-	org.label-schema.cmd="docker run --rm -ti nginxproxymanager/nginx-full:latest"
++	org.label-schema.description="Base image for the Proxywarden chain (derived from the upstream openresty bundle)" \
++	org.label-schema.url="https://github.com/funkysys-org/nginx-full" \
++	org.label-schema.vcs-url="https://github.com/funkysys-org/nginx-full.git" \
++	org.label-schema.cmd="docker run --rm -ti ghcr.io/funkysys-org/nginx-full:latest"
+diff --git a/docker/Dockerfile.certbot-node b/docker/Dockerfile.certbot-node
+index 9cf6a75..f72967e 100644
+--- a/docker/Dockerfile.certbot-node
++++ b/docker/Dockerfile.certbot-node
+@@ -3,7 +3,7 @@ FROM certbot AS final
+ ARG TARGETPLATFORM
+ ARG NODE_MAJOR=26
+ 
+-LABEL maintainer="Jamie Curnow <jc@jc21.com>"
++LABEL maintainer="funkysys-org"
+ 
+ RUN echo "Certbot + Node, ${TARGETPLATFORM:-linux/amd64}" >> /built-for-arch
+ 
+@@ -24,4 +24,4 @@ COPY ./docker/files/test.js /tmp/test.js
+ RUN node /tmp/test.js \
+ 	&& rm -f /tmp/test.js
+ 
+-LABEL org.label-schema.cmd="docker run --rm -ti nginxproxymanager/nginx-full:certbot-node"
++LABEL org.label-schema.cmd="docker run --rm -ti ghcr.io/funkysys-org/nginx-full:certbot-node"

@@ -91,6 +91,10 @@ jobs:
         run: |
           set -eu
           cd vendor/docker-nginx-full
+          # Proxywarden base debrand: the ONLY sanctioned delta on this tree
+          # (PROVENANCE rule) — LABELS only, applied build-time. The tree
+          # itself stays byte-faithful to the pinned upstream commit.
+          git apply ../../base-debrand.patch
           # Mirrors upstream's scripts/bake.sh invocation: explicit bake file
           # from the project root + a dedicated buildx builder (container
           # driver). We export to the docker store so the gates run BEFORE
