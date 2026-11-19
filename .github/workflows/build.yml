@@ -12,6 +12,7 @@ on:
       - 'modsec/**'
       - 'rootfs-s6/**'
       - 'test-runtime/**'
+      - 'base-debrand.patch'
       - 'docker-compose.waf-test.yml'
       - '.github/workflows/build.yml'
   workflow_dispatch:
