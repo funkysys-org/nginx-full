@@ -230,6 +230,15 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   # armer round-trip with a dummy DB file
   execsvc 'mkdir -p /data/geoip && : > /data/geoip/GeoLite2-Country.mmdb && sh /etc/s6-overlay/scripts/geoip2-arm.sh >/dev/null && test -f /etc/nginx/conf.d/geoip2.conf' \
     || die "armer did not write geoip2.conf with a DB present"
+  # MODULE LOADED, DIRECTIVE KNOWN: with the armed conf present, nginx -t must
+  # NOT report 'unknown directive "geoip2"' — it must instead fail on the
+  # DUMMY DB (a different, expected error). The absence of the unknown-directive
+  # message proves the load_module conf shipped and the module loads.
+  arm_t=$(execsvc 'nginx -t 2>&1' || true)
+  echo "$arm_t" | grep -q 'unknown directive "geoip2"' \
+    && die 'nginx does not know the geoip2 directive — the load_module conf is missing and the module never shipped'
+  echo "$arm_t" | grep -qi 'geoip2\|GeoLite2\|mmdb' \
+    || die "armed-window nginx -t did not even reach the DB — unexpected: $arm_t"
   execsvc 'rm -f /data/geoip/GeoLite2-Country.mmdb && sh /etc/s6-overlay/scripts/geoip2-arm.sh >/dev/null && test ! -f /etc/nginx/conf.d/geoip2.conf' \
     || die "armer did not remove geoip2.conf after the DB disappeared"
   pass "geoblocking: dormant host renders + serves, malformed codes rejected, armer round-trips"

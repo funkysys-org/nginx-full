@@ -99,7 +99,8 @@ RUN set -eu; \
     mkdir -p /tmp/out; \
     cp objs/ngx_http_modsecurity_module.so \
        objs/ngx_http_vhost_traffic_status_module.so \
-       objs/ngx_http_cache_purge_module.so /tmp/out/
+       objs/ngx_http_cache_purge_module.so \
+       objs/ngx_http_geoip2_module.so /tmp/out/
 
 # Backend patch layer (Phase A4 — the F4 WAF-audit log source, moved here
 # from proxywarden; Phase A5 — Static Hosts, the first full-stack feature):
@@ -173,6 +174,7 @@ COPY --from=builder /usr/local/modsecurity/etc /usr/local/modsecurity/etc
 COPY --from=builder /tmp/out/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_vhost_traffic_status_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_cache_purge_module.so /usr/lib/nginx/modules/
+COPY --from=builder /tmp/out/ngx_http_geoip2_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/crs /usr/local/modsecurity/crs
 
 # engine config: paths match the /data/modsec layout seeded on first run
@@ -274,6 +276,8 @@ RUN set -eu; \
       > /etc/nginx/modules/vts.conf; \
     printf 'load_module /usr/lib/nginx/modules/ngx_http_cache_purge_module.so;\n' \
       > /etc/nginx/modules/cache-purge.conf; \
+    printf 'load_module /usr/lib/nginx/modules/ngx_http_geoip2_module.so;\n' \
+      > /etc/nginx/modules/geoip2.conf; \
     useradd -r -M npm; \
     mkdir -p /tmp/nginx /run/nginx /var/log/nginx /var/cache/nginx \
              /var/lib/nginx/cache/public /var/lib/nginx/cache/private \
