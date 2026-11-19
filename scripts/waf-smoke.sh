@@ -271,9 +271,13 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   pass "max_body_size: rendered into the host config, injection rejected"
 
   # 17) Debrand gates (Wave 2): the shipped image and the served schema
-  #     carry ZERO upstream references (labels, description, error strings)
-  img_labels=$(docker inspect "$WAF_IMAGE" --format '{{json .Config.Labels}}' 2>/dev/null \
-    || docker inspect "ghcr.io/funkysys-org/nginx-full:${WAF_TAG:-dev}" --format '{{json .Config.Labels}}')
+  #     carry ZERO upstream references (labels, description, error strings).
+  #     Inspect the image the STACK runs (compose-resolved): env vars like
+  #     WAF_IMAGE are NOT in this script's scope — the first version of this
+  #     check inspected nothing (empty string) and passed VACUOUSLY.
+  img_id=$(docker compose -f "$COMPOSE_FILE" images -q "$SVC" | head -1)
+  [ -n "$img_id" ] || die "debrand check: no running image found for the stack"
+  img_labels=$(docker inspect "$img_id" --format '{{json .Config.Labels}}')
   echo "$img_labels" | grep -q 'nginxproxymanager\|jc21' \
     && die "upstream references in the image LABELS: $img_labels"
   schema_body=$(curl -s "$API/schema" -H "Authorization: Bearer $admin_tok")
