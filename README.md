@@ -128,4 +128,14 @@ dependency.
 
   After arming (or at first boot with the DB in place), re-save hosts that
   carry country rules so their config regenerates with the `if()` lines.
+- **A3** ✅ (this) — **brotli in-image** (the parked sovereignty move, now
+  unblocked): the `ngx_brotli` filter + static modules build in the same
+  ABI dance as vts/purge, with the submodule (the C library) checked out
+  at **v1.2.1 — the CVE-2026-111497 / Broccoli2Shell fix** (the module
+  repo has no usable tags: pinned by commit SHA, both pins under
+  pins-sync). The tag gains `-brotli1.2.1` and downstream re-pins follow.
+  Compression defaults ship at http level (`conf.d/proxywarden-brotli.conf`:
+  on, level 5, min 256, the text types, `brotli_static on` for pre-packed
+  .br on static hosts; gzip stays stock as the no-br fallback). Smoke:
+  the default site must answer `Content-Encoding: br`.
 

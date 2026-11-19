@@ -32,6 +32,10 @@ env:
   CRS_VERSION: 'v4.30.0'
   VTS_VERSION: 'v0.2.7'
   CACHE_PURGE_VERSION: '3.0.4'
+  # brotli: libbrotli at the CVE-2026-111497 fix tag; the module repo has no
+  # usable tags — pinned by commit SHA (pins-sync checks both against the ARGs)
+  BROTLI_VERSION: 'v1.2.1'
+  BROTLI_MODULE_SHA: '53e0fb55f250f48fe80c0ddbf6c0f7103cdbaae1'
   WAF_BUILD_JOBS: '4'
   NODE_FLOOR: '26.12.1'  # Broccoli2Shell / CVE-2026-111497 fix line
   IMAGE: ghcr.io/funkysys-org/nginx-full
@@ -60,7 +64,7 @@ jobs:
           [ "$NPM_VERSION" = "$df" ] || { echo "::error::PIN MISMATCH NPM_VERSION: workflow='${NPM_VERSION}' app/Dockerfile='${df}'"; exit 1; }
           prov_sha=$(sed -n 's/^| Commit | \(.*\) |$/\1/p' vendor/npm/PROVENANCE.md | tr -d ' ')
           [ "$NPM_COMMIT" = "$prov_sha" ] || { echo "::error::PROVENANCE MISMATCH: workflow NPM_COMMIT='${NPM_COMMIT}' vendored tree='${prov_sha}' — re-vendor or fix the pin"; exit 1; }
-          for pin in MODSEC_VERSION MODSEC_NGINX_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION; do
+          for pin in MODSEC_VERSION MODSEC_NGINX_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION BROTLI_VERSION BROTLI_MODULE_SHA; do
             wf=$(printenv "$pin")
             df=$(sed -n "s/^ARG ${pin}=//p" overlay/Dockerfile)
             [ "$wf" = "$df" ] || { echo "::error::PIN MISMATCH ${pin}: workflow='${wf}' overlay/Dockerfile='${df}'"; exit 1; }
@@ -156,7 +160,7 @@ jobs:
         run: |
           set -eu
           APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
-          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}"
+          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}-brotli${BROTLI_VERSION#v}"
           docker build -f overlay/Dockerfile \
             --build-arg WAF_BASE_IMAGE="${IMAGE}:${APP_TAG}" \
             --build-arg OPENRESTY_VERSION \
@@ -165,6 +169,8 @@ jobs:
             --build-arg CRS_VERSION \
             --build-arg VTS_VERSION \
             --build-arg CACHE_PURGE_VERSION \
+            --build-arg BROTLI_VERSION \
+            --build-arg BROTLI_MODULE_SHA \
             --build-arg BUILD_JOBS="${WAF_BUILD_JOBS}" \
             -t "${IMAGE}:${WAF_TAG}" .
 
@@ -172,7 +178,7 @@ jobs:
         run: |
           set -eu
           APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
-          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}"
+          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}-brotli${BROTLI_VERSION#v}"
           WAF_IMAGE="${IMAGE}:${WAF_TAG}" docker compose -f docker-compose.waf-test.yml up -d
           for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8181/ >/dev/null 2>&1 && break; sleep 2; done
           bash scripts/waf-smoke.sh
@@ -186,7 +192,7 @@ jobs:
           docker push "$BASE_TAG"
           docker push "${IMAGE}:${NPM_VERSION}-or${OPENRESTY_VERSION}"
           APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
-          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}"
+          WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}-brotli${BROTLI_VERSION#v}"
           docker push "${IMAGE}:${WAF_TAG}"
 
   drift-check:

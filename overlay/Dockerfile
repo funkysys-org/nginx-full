@@ -18,6 +18,11 @@ ARG MODSEC_NGINX_VERSION=1.0.4
 ARG CRS_VERSION=v4.30.0
 ARG VTS_VERSION=v0.2.7
 ARG CACHE_PURGE_VERSION=3.0.4
+# brotli: the module repo has no usable tags — pinned by commit SHA; the
+# submodule (the C library, deps/brotli) is checked out at the BROTLI tag —
+# 1.2.1 is the CVE-2026-111497 (Broccoli2Shell) fix: never below it
+ARG BROTLI_VERSION=v1.2.1
+ARG BROTLI_MODULE_SHA=53e0fb55f250f48fe80c0ddbf6c0f7103cdbaae1
 ARG BUILD_JOBS=6
 
 # --- stage 1: capture exact configure args from the base binary ------------
@@ -64,7 +69,11 @@ RUN set -eu; \
     git clone --depth 1 --branch ${VTS_VERSION} \
       https://github.com/vozlt/nginx-module-vts /tmp/nginx-module-vts; \
     git clone --depth 1 --branch ${CACHE_PURGE_VERSION} \
-      https://github.com/nginx-modules/ngx_cache_purge /tmp/ngx_cache_purge
+      https://github.com/nginx-modules/ngx_cache_purge /tmp/ngx_cache_purge; \
+    git clone https://github.com/google/ngx_brotli /tmp/ngx_brotli; \
+    git -C /tmp/ngx_brotli checkout ${BROTLI_MODULE_SHA}; \
+    git -C /tmp/ngx_brotli submodule update --init --depth 1; \
+    git -C /tmp/ngx_brotli/deps/brotli checkout ${BROTLI_VERSION}
 
 # openresty source (release tarball) at the pinned version; geoip2 at the
 # literal path baked into the base binary's configure arguments.
@@ -94,13 +103,16 @@ RUN set -eu; \
     ./configure $(cat /tmp/nginx-args) \
       --add-dynamic-module=/tmp/ModSecurity-nginx \
       --add-dynamic-module=/tmp/nginx-module-vts \
-      --add-dynamic-module=/tmp/ngx_cache_purge; \
+      --add-dynamic-module=/tmp/ngx_cache_purge \
+      --add-dynamic-module=/tmp/ngx_brotli; \
     make modules; \
     mkdir -p /tmp/out; \
     cp objs/ngx_http_modsecurity_module.so \
        objs/ngx_http_vhost_traffic_status_module.so \
        objs/ngx_http_cache_purge_module.so \
-       objs/ngx_http_geoip2_module.so /tmp/out/
+       objs/ngx_http_geoip2_module.so \
+       objs/ngx_http_brotli_filter_module.so \
+       objs/ngx_http_brotli_static_module.so /tmp/out/
 
 # Backend patch layer (Phase A4 — the F4 WAF-audit log source, moved here
 # from proxywarden; Phase A5 — Static Hosts, the first full-stack feature):
@@ -175,6 +187,8 @@ COPY --from=builder /tmp/out/ngx_http_modsecurity_module.so /usr/lib/nginx/modul
 COPY --from=builder /tmp/out/ngx_http_vhost_traffic_status_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_cache_purge_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_geoip2_module.so /usr/lib/nginx/modules/
+COPY --from=builder /tmp/out/ngx_http_brotli_filter_module.so /usr/lib/nginx/modules/
+COPY --from=builder /tmp/out/ngx_http_brotli_static_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/crs /usr/local/modsecurity/crs
 
 # engine config: paths match the /data/modsec layout seeded on first run
@@ -278,6 +292,10 @@ RUN set -eu; \
       > /etc/nginx/modules/cache-purge.conf; \
     printf 'load_module /usr/lib/nginx/modules/ngx_http_geoip2_module.so;\n' \
       > /etc/nginx/modules/geoip2.conf; \
+    printf 'load_module /usr/lib/nginx/modules/ngx_http_brotli_filter_module.so;\n' \
+      > /etc/nginx/modules/brotli-filter.conf; \
+    printf 'load_module /usr/lib/nginx/modules/ngx_http_brotli_static_module.so;\n' \
+      > /etc/nginx/modules/brotli-static.conf; \
     useradd -r -M npm; \
     mkdir -p /tmp/nginx /run/nginx /var/log/nginx /var/cache/nginx \
              /var/lib/nginx/cache/public /var/lib/nginx/cache/private \

@@ -70,6 +70,14 @@ c=$(code "$WAF/") || die "curl to WAF failed (exit $?)"
 [ "$c" = "200" ] || die "benign GET / -> $c (want 200)"
 pass "benign 200"
 
+# 5b) brotli (A3): the filter module ships and the default site answers
+# br-compressed when the client asks for it (http-level conf.d + module)
+execsvc 'ls /usr/lib/nginx/modules/ngx_http_brotli_filter_module.so /usr/lib/nginx/modules/ngx_http_brotli_static_module.so >/dev/null && test -f /etc/nginx/modules/brotli-filter.conf' \
+  || die "brotli module files or load conf missing"
+br_hdr=$(curl -s -o /dev/null -D - -H 'Accept-Encoding: br' http://127.0.0.1:80/ | grep -i '^content-encoding:')
+[ "${br_hdr#*: }" = "br" ] || die "response not brotli-compressed: header='$br_hdr'"
+pass "brotli: modules loaded, default site answers Content-Encoding: br"
+
 for u in '/?id=1%20UNION%20SELECT%20password%20FROM%20users' \
          '/?exec=/bin/bash' \
          '/?q=%3Cscript%3Ealert%281%29%3C%2Fscript%3E'; do
@@ -264,4 +272,4 @@ else
 fi
 
 echo
-echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, attacks 403, audit log written, API docs served, WAF audit in API sources, static host e2e works"
+echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, brotli br live, attacks 403, audit log written, API docs served, WAF audit in API sources, static host e2e works"
