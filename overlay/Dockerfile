@@ -37,7 +37,7 @@ RUN set -eu; \
 
 # --- stage 2: build libmodsecurity + connector + vts + purge + fetch CRS ----
 FROM debian:trixie-slim AS builder
-ARG MODSEC_VERSION MODSEC_NGINX_VERSION OPENRESTY_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION BUILD_JOBS
+ARG MODSEC_VERSION MODSEC_NGINX_VERSION OPENRESTY_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION BROTLI_VERSION BROTLI_MODULE_SHA BUILD_JOBS
 RUN set -eu; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
