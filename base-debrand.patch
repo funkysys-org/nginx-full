@@ -1,7 +1,7 @@
-diff --git a/docker/Dockerfile b/docker/Dockerfile
+diff --git a/vendor/docker-nginx-full/docker/Dockerfile b/vendor/docker-nginx-full/docker/Dockerfile
 index 06ff042..2f59a95 100644
---- a/docker/Dockerfile
-+++ b/docker/Dockerfile
+--- a/vendor/docker-nginx-full/docker/Dockerfile
++++ b/vendor/docker-nginx-full/docker/Dockerfile
 @@ -102,7 +102,7 @@ RUN apt-get update \
  LABEL org.label-schema.schema-version="1.0" \
  	org.label-schema.license="MIT" \
@@ -14,10 +14,10 @@ index 06ff042..2f59a95 100644
 +	org.label-schema.url="https://github.com/funkysys-org/nginx-full" \
 +	org.label-schema.vcs-url="https://github.com/funkysys-org/nginx-full.git" \
 +	org.label-schema.cmd="docker run --rm -ti ghcr.io/funkysys-org/nginx-full:latest"
-diff --git a/docker/Dockerfile.certbot-node b/docker/Dockerfile.certbot-node
+diff --git a/vendor/docker-nginx-full/docker/Dockerfile.certbot-node b/vendor/docker-nginx-full/docker/Dockerfile.certbot-node
 index 9cf6a75..f72967e 100644
---- a/docker/Dockerfile.certbot-node
-+++ b/docker/Dockerfile.certbot-node
+--- a/vendor/docker-nginx-full/docker/Dockerfile.certbot-node
++++ b/vendor/docker-nginx-full/docker/Dockerfile.certbot-node
 @@ -3,7 +3,7 @@ FROM certbot AS final
  ARG TARGETPLATFORM
  ARG NODE_MAJOR=26

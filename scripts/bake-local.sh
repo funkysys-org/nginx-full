@@ -17,22 +17,27 @@ IMAGE="ghcr.io/funkysys-org/nginx-full"
 OR_VERSION=$(sed -n 's/^ARG OPENRESTY_VERSION=//p' vendor/docker-nginx-full/docker/Dockerfile | head -1)
 : "${OR_VERSION:=1.31.8.1}"
 
-# 1) Debrand patch — idempotent: skip if already applied, die if apply fails
-#    for any other reason (drift must be looked at, never baked around).
-cd vendor/docker-nginx-full
-if git apply --check ../../base-debrand.patch 2>/dev/null; then
-  git apply ../../base-debrand.patch
+# 1) Debrand patch — idempotent, applied FROM THE REPO ROOT with
+#    root-relative paths: git apply from a subdirectory silently IGNORES
+#    paths outside it (exit 0, zero files) — the CI shipped upstream labels
+#    for weeks on that exact form. The assertion after any apply is not
+#    optional: an apply step must prove it changed something.
+cd "$(git rev-parse --show-toplevel)"
+if git apply --check base-debrand.patch 2>/dev/null; then
+  git apply base-debrand.patch
   echo "[bake-local] base-debrand.patch applied"
-elif grep -q 'funkysys-org' docker/Dockerfile.certbot-node; then
+elif grep -q 'funkysys-org' vendor/docker-nginx-full/docker/Dockerfile.certbot-node; then
   echo "[bake-local] base-debrand.patch already applied — continuing"
 else
   echo "ERROR: base-debrand.patch does not apply and the tree is not patched — investigate, never bake around drift" >&2
   exit 1
 fi
+grep -q 'funkysys-org' vendor/docker-nginx-full/docker/Dockerfile.certbot-node \
+  || { echo "ERROR: apply exited 0 but the effect is absent (silent no-op)" >&2; exit 1; }
 
 # 2) Pre-gate the patched tree BEFORE the long bake: zero upstream refs in
 #    the label lines of the three Dockerfiles that stamp the final image.
-for f in docker/Dockerfile docker/Dockerfile.certbot docker/Dockerfile.certbot-node; do
+for f in vendor/docker-nginx-full/docker/Dockerfile vendor/docker-nginx-full/docker/Dockerfile.certbot vendor/docker-nginx-full/docker/Dockerfile.certbot-node; do
   if grep -n 'LABEL\|maintainer' "$f" | grep -q 'nginxproxymanager\|jc21'; then
     echo "ERROR: upstream refs still in $f LABEL lines — patch state broken" >&2
     exit 1
@@ -41,6 +46,7 @@ done
 echo "[bake-local] pre-gate OK: no upstream refs in the label lines"
 
 # 3) Bake exactly like CI (same file, same target, same export).
+cd vendor/docker-nginx-full
 docker buildx create --name nginxfull || true
 docker buildx use nginxfull
 docker buildx bake \

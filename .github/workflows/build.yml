@@ -90,11 +90,19 @@ jobs:
       - name: Build the vendored base chain (certbot-node variant)
         run: |
           set -eu
-          cd vendor/docker-nginx-full
           # Proxywarden base debrand: the ONLY sanctioned delta on this tree
           # (PROVENANCE rule) — LABELS only, applied build-time. The tree
           # itself stays byte-faithful to the pinned upstream commit.
-          git apply ../../base-debrand.patch
+          # Apply FROM THE REPO ROOT: git apply from a subdirectory SILENTLY
+          # IGNORES paths outside it — the previous form (cd vendor/... then
+          # git apply ../../base-debrand.patch) exited 0 and patched NOTHING,
+          # shipping upstream LABELS while every gate stayed green (parity
+          # passes on a virgin tree by definition; the old smoke gate was
+          # vacuous). Root-relative patch paths + assertion, or nothing.
+          git apply base-debrand.patch
+          grep -q 'funkysys-org' vendor/docker-nginx-full/docker/Dockerfile.certbot-node \
+            || { echo "::error::base-debrand.patch applied NOTHING (silent no-op) — dying"; exit 1; }
+          cd vendor/docker-nginx-full
           # Mirrors upstream's scripts/bake.sh invocation: explicit bake file
           # from the project root + a dedicated buildx builder (container
           # driver). We export to the docker store so the gates run BEFORE
