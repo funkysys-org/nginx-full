@@ -26,6 +26,7 @@ env:
   LUAROCKS_VERSION: '3.13.0'
   NPM_VERSION: '2.17.0'   # app-layer pin (A1) + parity reference
   NPM_COMMIT: '5c8aec9bdeca0a2fb6a71e060ec598aa6eddd186'   # the v2.17.0 tag sha (label metadata)
+  NGINX_FULL_COMMIT: '38654e0738a6c19578e0045678480622e48473878c'  # vendored base tree (PROVENANCE-gated)
   # WAF layer (A2b — the former npm-modsec repo, merged here)
   MODSEC_VERSION: '3.0.17'
   MODSEC_NGINX_VERSION: '1.0.4'
@@ -64,6 +65,8 @@ jobs:
           [ "$NPM_VERSION" = "$df" ] || { echo "::error::PIN MISMATCH NPM_VERSION: workflow='${NPM_VERSION}' app/Dockerfile='${df}'"; exit 1; }
           prov_sha=$(sed -n 's/^| Commit | \(.*\) |$/\1/p' vendor/npm/PROVENANCE.md | tr -d ' ')
           [ "$NPM_COMMIT" = "$prov_sha" ] || { echo "::error::PROVENANCE MISMATCH: workflow NPM_COMMIT='${NPM_COMMIT}' vendored tree='${prov_sha}' — re-vendor or fix the pin"; exit 1; }
+          base_sha=$(sed -n 's/^| Commit | \(.*\) |$/\1/p' vendor/docker-nginx-full/PROVENANCE.md | tr -d ' ')
+          [ "$NGINX_FULL_COMMIT" = "$base_sha" ] || { echo "::error::PROVENANCE MISMATCH: workflow NGINX_FULL_COMMIT='${NGINX_FULL_COMMIT}' vendored base tree='${base_sha}' — re-vendor or fix the pin"; exit 1; }
           for pin in MODSEC_VERSION MODSEC_NGINX_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION BROTLI_VERSION BROTLI_MODULE_SHA; do
             wf=$(printenv "$pin")
             df=$(sed -n "s/^ARG ${pin}=//p" overlay/Dockerfile)
@@ -206,10 +209,12 @@ jobs:
             | sed 's|.*refs/tags/v||' | sort -V | tail -1)
           npm_latest=$(git ls-remote --tags --refs https://github.com/NginxProxyManager/nginx-proxy-manager 'refs/tags/v2*' \
             | sed 's|.*refs/tags/v||' | sort -V | tail -1)
+          dnf_master=$(git ls-remote https://github.com/nginxproxymanager/docker-nginx-full refs/heads/master | cut -f1)
           echo "openresty latest: ${or_latest} | our pin: ${OPENRESTY_VERSION}"
           echo "NPM source latest: ${npm_latest} | our pin: ${NPM_VERSION}"
-          if [ "$or_latest" != "$OPENRESTY_VERSION" ] || [ "$npm_latest" != "$NPM_VERSION" ]; then
-            echo "::error::UPSTREAM MOVED (openresty ${or_latest} / NPM ${npm_latest}). Pins are a human decision — bump in workflow env AND vendored bake defaults, rebuild, re-run the parity gate."
+          echo "docker-nginx-full master: ${dnf_master:0:12} | vendored: ${NGINX_FULL_COMMIT:0:12}"
+          if [ "$or_latest" != "$OPENRESTY_VERSION" ] || [ "$npm_latest" != "$NPM_VERSION" ] || [ "$dnf_master" != "$NGINX_FULL_COMMIT" ]; then
+            echo "::error::UPSTREAM MOVED (openresty ${or_latest} / NPM ${npm_latest} / base tree ${dnf_master:0:12}). Pins are a human decision — bump in workflow env AND vendored bake defaults, rebuild, re-run the parity gate."
             exit 1
           fi
           echo "no drift — pins current"
