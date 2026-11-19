@@ -74,8 +74,10 @@ pass "benign 200"
 # br-compressed when the client asks for it (http-level conf.d + module)
 execsvc 'ls /usr/lib/nginx/modules/ngx_http_brotli_filter_module.so /usr/lib/nginx/modules/ngx_http_brotli_static_module.so >/dev/null && test -f /etc/nginx/modules/brotli-filter.conf' \
   || die "brotli module files or load conf missing"
-br_hdr=$(curl -s -o /dev/null -D - -H 'Accept-Encoding: br' http://127.0.0.1:80/ | grep -i '^content-encoding:')
-[ "${br_hdr#*: }" = "br" ] || die "response not brotli-compressed: header='$br_hdr'"
+# curl -D writes CRLF headers — strip the CR BEFORE comparing, or "br\r" != "br"
+# (first green run died on exactly that: the feature worked, the check didn't)
+br_ce=$(curl -s -o /dev/null -D - -H 'Accept-Encoding: br' http://127.0.0.1:80/ | tr -d '\r' | sed -n 's/^[Cc]ontent-[Ee]ncoding:[[:space:]]*//p' | head -1)
+[ "$br_ce" = "br" ] || die "response not brotli-compressed: content-encoding='$br_ce'"
 pass "brotli: modules loaded, default site answers Content-Encoding: br"
 
 for u in '/?id=1%20UNION%20SELECT%20password%20FROM%20users' \
