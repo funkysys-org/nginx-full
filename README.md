@@ -103,31 +103,14 @@ dependency.
   compiled into the image (parity configure args); the lookup is ARMED by
   the s6 `geoip2-arm` oneshot when a GeoLite2 Country DB exists at
   `/data/geoip/GeoLite2-Country.mmdb` — without it, hosts with country
-  rules stay renderable and the field stays stored (dormant). To arm:
-  drop the DB there (or run the official updater sidecar) and restart:
-
-  ```yaml
-  # docker-compose.geoip.yml — docker compose -f docker-compose.yml -f docker-compose.geoip.yml up -d
-  services:
-    geoipupdate:
-      image: maxmindinc/geoipupdate:latest   # pin a tag in production
-      restart: unless-stopped
-      environment:
-        GEOIPDB_ACCOUNT_ID: ${MAXMIND_ACCOUNT_ID}
-        GEOIPDB_LICENSE_KEY: ${MAXMIND_LICENSE_KEY}
-        GEOIPDB_EDITION_IDS: GeoLite2-Country
-        GEOIPDB_FREQUENCY: 168               # weekly, hours
-      volumes:
-        - proxywarden_geoip:/usr/local/share/GeoIP
-    proxywarden:
-      volumes:
-        - proxywarden_geoip:/data/geoip:ro
-  volumes:
-    proxywarden_geoip: {}
-  ```
-
-  After arming (or at first boot with the DB in place), re-save hosts that
-  carry country rules so their config regenerates with the `if()` lines.
+  rules stay renderable and the field stays stored (dormant). The deploy
+  form lives in the product repo's docker-compose.yml: the
+  `maxmindinc/geoipupdate` sidecar (v8.0 pinned) sits under
+  `profiles: ["geoip"]`, so ONE line in `.env` — `COMPOSE_PROFILES=geoip`
+  plus the `MAXMIND_ACCOUNT_ID`/`MAXMIND_LICENSE_KEY` credentials — and a
+  plain `docker compose up -d` arms it (weekly refresh, shared volume,
+  the product mounts it read-only at /data/geoip). Without the profile the
+  sidecar is ignored entirely.
 - **A3** ✅ (this) — **brotli in-image** (the parked sovereignty move, now
   unblocked): the `ngx_brotli` filter + static modules build in the same
   ABI dance as vts/purge, with the submodule (the C library) checked out
