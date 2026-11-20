@@ -103,6 +103,8 @@ jobs:
           git apply base-debrand.patch
           grep -q 'funkysys-org' vendor/docker-nginx-full/docker/Dockerfile.certbot-node \
             || { echo "::error::base-debrand.patch applied NOTHING (silent no-op) — dying"; exit 1; }
+          echo "[instrument] tree state at build time (must be funkysys-org):"
+          grep -n 'maintainer=' vendor/docker-nginx-full/docker/Dockerfile.certbot-node
           cd vendor/docker-nginx-full
           # Mirrors upstream's scripts/bake.sh invocation: explicit bake file
           # from the project root + a dedicated buildx builder (container
@@ -122,6 +124,8 @@ jobs:
             --set "certbot-node.output=type=docker" \
             certbot-node
           docker image inspect "${IMAGE}:certbot-node" >/dev/null
+          echo "[instrument] baked base labels:"
+          docker inspect "${IMAGE}:certbot-node" --format '{{json .Config.Labels}}'
 
       - name: Parity gate (vs official image + committed oracle)
         run: |
@@ -152,6 +156,8 @@ jobs:
             --build-arg BUILD_DATE="$(date '+%Y-%m-%d %T %Z')" \
             -t "${IMAGE}:${APP_TAG}" \
             -f app/Dockerfile .
+          echo "[instrument] app labels:"
+          docker inspect "${IMAGE}:${APP_TAG}" --format '{{json .Config.Labels}}'
 
       - name: App smoke (boots, stock UI served, nginx -t)
         run: |
@@ -189,6 +195,10 @@ jobs:
             --build-arg BROTLI_MODULE_SHA \
             --build-arg BUILD_JOBS="${WAF_BUILD_JOBS}" \
             -t "${IMAGE}:${WAF_TAG}" .
+
+      
+                    echo "[instrument] waf labels:"
+          docker inspect "${IMAGE}:${WAF_TAG}" --format '{{json .Config.Labels}}'
 
       - name: WAF smoke (payload matrix)
         run: |
