@@ -11,7 +11,11 @@
 # ---------------------------------------------------------------------------
 
 # Global ARGs — ONLY these are visible to FROM lines (learned the hard way).
-ARG WAF_BASE_IMAGE=ghcr.io/funkysys-org/nginx-full:2.17.0-or1.31.8.1
+# NEVER point this default at a PUBLISHED tag: BuildKit resolves published
+# tags from the registry, and the overlay would consume the STALE app digest
+# instead of the fresh local build. ":app-build" is local-only by contract;
+# the workflow always passes it explicitly anyway.
+ARG WAF_BASE_IMAGE=ghcr.io/funkysys-org/nginx-full:app-build
 ARG OPENRESTY_VERSION=1.31.8.1
 ARG MODSEC_VERSION=3.0.17
 ARG MODSEC_NGINX_VERSION=1.0.4
