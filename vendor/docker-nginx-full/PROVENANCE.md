@@ -6,6 +6,7 @@
 | Commit | 38654e0738a6c19578e0045678480622e48473878c |
 | Vendored | 2026-11-19 (sync: LICENSE e9cb203 + the HTTP/2 security backports d361a16 — CVE-2026-123007, CVE-2026-123633, http2-data-frame-queue) |
 | Tree | complete checkout of the commit, minus `.git/` — byte-faithful, ZERO local modifications |
+| Build-time security carriage | `docker/patches/`: the upstream h2 backports (part of the commit) + `security-1.31.9-batch.patch` (OUR delta: the verbatim nginx.org 1.31.8→1.31.9 diff, 30 security files, v2/version-bump/CHANGES excluded; applied by `build-openresty.sh` after the h2 patches; superseded by the 1.31.9.x bundle bump) |
 
 ## Rules
 
