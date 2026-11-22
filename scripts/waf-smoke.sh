@@ -169,7 +169,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   # overlap that oneOf rejected): write it back unchanged, expect 200.
   lput=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$API/settings/ldap-auth" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
-    -d '{"value":"disabled","meta":{"enabled":false,"url":"","bindDN":"","bindPassword":"","baseDN":"","filter":"(uid={username})","starttls":false,"provisionOnLogin":true,"defaultVisibility":"user"}}')
+    -d '{"value":"disabled","meta":{"enabled":false,"url":"","bind_dn":"","bind_password":"","base_dn":"","filter":"(uid={username})","starttls":false,"provision_on_login":true,"default_visibility":"user"}}')
   [ "$lput" = "200" ] || die "PUT /api/settings/ldap-auth -> $lput (want 200)"
   pass "LDAP auth setting seeded, served, PUT round-trip clean"
 
@@ -193,7 +193,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   [ "$w_code" = "200" ] || die "GET /api/waf/tuning -> $w_code (want 200)"
   wput=$(curl -s -X PUT "$API/waf/tuning" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
-    -d '{"exclusions":[{"id":920350,"note":"smoke test exclusion"}],"paranoiaLevel":1}')
+    -d '{"exclusions":[{"id":920350,"note":"smoke test exclusion"}],"paranoia_level":1}')
   echo "$wput" | grep -q '"id":920350' || die "WAF tuning PUT did not return the exclusion: $wput"
   execsvc 'grep -q "SecRuleRemoveById 920350;" /data/modsec/rules-after.conf' \
     || die "rules-after.conf does not contain the exclusion"
@@ -201,7 +201,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
     || die "rules-before.conf does not contain the paranoia block"
   wclr=$(curl -s -X PUT "$API/waf/tuning" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
-    -d '{"exclusions":[],"paranoiaLevel":1}')
+    -d '{"exclusions":[],"paranoia_level":1}')
   echo "$wclr" | grep -q '"exclusions":\[\]' || die "WAF tuning cleanup failed: $wclr"
   execsvc 'grep -vq "SecRuleRemoveById" /data/modsec/rules-after.conf' \
     || die "rules-after.conf still has exclusions after cleanup"
