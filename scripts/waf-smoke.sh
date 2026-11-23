@@ -211,6 +211,8 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
     || die "rules-after.conf does not contain the exclusion"
   execsvc 'grep -q "tx.blocking_paranoia_level=1" /data/modsec/rules-before.conf' \
     || die "rules-before.conf does not contain the paranoia block"
+  echo "[smoke] rules-before.conf entering the cleanup PUT (the exact bytes):"
+  execsvc 'cat -A /data/modsec/rules-before.conf' 
   wclr=$(curl -s -X PUT "$API/waf/tuning" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"exclusions":[],"paranoia_level":1}')
