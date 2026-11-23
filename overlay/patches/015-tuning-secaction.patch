@@ -1,5 +1,5 @@
 diff --git a/backend/internal/waf.js b/backend/internal/waf.js
-index 609d693..8bfff71 100644
+index 609d693..c0c3d54 100644
 --- a/backend/internal/waf.js
 +++ b/backend/internal/waf.js
 @@ -64,7 +64,7 @@ const internalWaf = {
@@ -26,7 +26,7 @@ index 609d693..8bfff71 100644
  		const afterLines = [AFTER_HEADER];
  		for (const e of exclusions) {
  			if (e.note && typeof e.note === "string" && e.note.trim()) {
-@@ -120,9 +128,15 @@ const internalWaf = {
+@@ -120,21 +128,54 @@ const internalWaf = {
  		} catch {
  			// seeded below
  		}
@@ -43,8 +43,19 @@ index 609d693..8bfff71 100644
  			PARANOIA_END,
  		].join("\n");
  		const stripRe = new RegExp(`\\n?${PARANOIA_BEGIN}[\\s\\S]*?${PARANOIA_END}\\n?`, "g");
-@@ -133,8 +147,29 @@ const internalWaf = {
- 		const composed = [BEFORE_HEADER, block, body].filter(Boolean).join("\n");
+ 		let body = before.replace(stripRe, "\n");
+ 		// Drop the stale seed header comment so it can't accumulate
+-		body = body.replace(/^# custom rules evaluated BEFORE CRS\n?/, "");
++		body = body.replace(/^# custom rules evaluated BEFORE CRS[^\n]*\n?/gm, "");
+ 		body = body.trim();
+-		const composed = [BEFORE_HEADER, block, body].filter(Boolean).join("\n");
++		// No prose header in the generated file: a comment line above the block
++		// accumulated across re-saves (the legacy strip regex did not match the
++		// parenthetical form) and produced a phantom 5th line that some parse
++		// contexts rejected while every isolated test passed. The block markers
++		// carry all the identity the compose needs; the seed's own header is
++		// stripped on the first save by the tolerant regex below.
++		const composed = [block, body].filter(Boolean).join("\n");
  		await fs.writeFile(RULES_BEFORE, `${composed}\n`, "utf8");
  
 -		// Both engine modes include these files: reload once, live for all
