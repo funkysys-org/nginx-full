@@ -123,7 +123,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   sh_create=$(curl -s -X POST "$API/nginx/static-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"domain_names":["static-smoke.test"],"content":"<h1>StaticSmokeWorks</h1>"}')
-  sh_id=$(echo "$sh_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  sh_id=$(echo "$sh_create" | sed -n 's/^{"id" *: *\([0-9]*\).*/\1/p')
   [ -n "$sh_id" ] || die "static host creation failed: $sh_create"
   sleep 2   # configure() reloads nginx — give it a beat
   sh_body=$(curl -s -H 'Host: static-smoke.test' http://127.0.0.1:80/)
@@ -138,7 +138,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   dr_create=$(curl -s -X POST "$API/nginx/static-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"domain_names":["docroot-smoke.test"],"document_root":"/data/docroot-smoke"}')
-  dr_id=$(echo "$dr_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  dr_id=$(echo "$dr_create" | sed -n 's/^{"id" *: *\([0-9]*\).*/\1/p')
   [ -n "$dr_id" ] || die "document_root host creation failed: $dr_create"
   sleep 2   # configure() reloads nginx — give it a beat
   dr_body=$(curl -s -H 'Host: docroot-smoke.test' http://127.0.0.1:80/)
@@ -198,7 +198,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   tn_create=$(curl -s -X POST "$API/nginx/proxy-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"domain_names":["tuning-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"advanced_config":"# BEGIN PROXYWARDEN WAF\nmodsecurity on;\nmodsecurity_rules_file /etc/nginx/modsec/main.conf;\n# END PROXYWARDEN WAF"}')
-  tn_id=$(echo "$tn_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  tn_id=$(echo "$tn_create" | sed -n 's/^{"id" *: *\([0-9]*\).*/\1/p')
   [ -n "$tn_id" ] || die "WAF-ON host for the tuning gate failed: $tn_create"
   sleep 2
   w_code=$(curl -s -o /dev/null -w '%{http_code}' "$API/waf/tuning" -H "Authorization: Bearer $admin_tok")
@@ -240,7 +240,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   gb_create=$(curl -s -X POST "$API/nginx/static-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"domain_names":["geo-smoke.test"],"content":"<h1>GeoDormantWorks</h1>","country_deny":["IT","CN"]}')
-  gb_id=$(echo "$gb_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  gb_id=$(echo "$gb_create" | sed -n 's/^{"id" *: *\([0-9]*\).*/\1/p')
   [ -n "$gb_id" ] || die "country_deny host creation failed (dormant mode must accept): $gb_create"
   sleep 2
   gb_body=$(curl -s -H 'Host: geo-smoke.test' http://127.0.0.1:80/)
@@ -273,7 +273,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   mb_create=$(curl -s -X POST "$API/nginx/proxy-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"domain_names":["body-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"max_body_size":"32m"}')
-  mb_id=$(echo "$mb_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  mb_id=$(echo "$mb_create" | sed -n 's/^{"id" *: *\([0-9]*\).*/\1/p')
   [ -n "$mb_id" ] || die "proxy host with max_body_size creation failed: $mb_create"
   sleep 2
   execsvc "grep -q 'client_max_body_size 32m;' /data/nginx/proxy_host/$mb_id.conf" \
