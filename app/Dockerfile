@@ -67,7 +67,7 @@ RUN yarn install \
 # Remove the frontend service (dev-only) and the dev nginx config,
 # exactly like upstream's release assembly.
 RUN rm -rf /etc/s6-overlay/s6-rc.d/user/contents.d/frontend /etc/nginx/conf.d/dev.conf \
-    && chmod 644 /etc/logrotate.d/proxywarden
+    && chmod 644 /etc/logrotate.d/nginx-proxy-manager
 
 VOLUME [ "/data" ]
 ENTRYPOINT [ "/init" ]
