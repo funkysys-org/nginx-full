@@ -207,7 +207,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   echo "$wput" | grep -q '"id":920350' || die "WAF tuning PUT did not return the exclusion: $wput"
   execsvc 'grep -q "SecRuleRemoveById 920350;" /data/modsec/rules-after.conf' \
     || die "rules-after.conf does not contain the exclusion"
-  execsvc 'grep -q "crs_paranoia_level=1" /data/modsec/rules-before.conf' \
+  execsvc 'grep -q "tx.blocking_paranoia_level=1" /data/modsec/rules-before.conf' \
     || die "rules-before.conf does not contain the paranoia block"
   wclr=$(curl -s -X PUT "$API/waf/tuning" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
