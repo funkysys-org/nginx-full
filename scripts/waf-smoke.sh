@@ -190,12 +190,14 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
 
   # 13) WAF tuning API (Wave 3): the canary-runbook CLI, panel-side.
   # A WAF-ON proxy host must be LIVE during the PUT: the handler's reload
+  # (the per-host WAF is NOT an API field — it is a marked block in the
+  # admin-only advancedConfig, exactly what the FE composes on submit)
   # runs nginx -t, and only a live host's conf includes the modsec files —
   # without one, a broken directive in rules-before.conf sails through
   # un-parsed (exactly how the trailing-';' SecAction shipped CI-green).
   tn_create=$(curl -s -X POST "$API/nginx/proxy-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
-    -d '{"domain_names":["tuning-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"waf_detect":true}')
+    -d '{"domain_names":["tuning-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"advancedConfig":"# BEGIN PROXYWARDEN WAF\nmodsecurity on;\nmodsecurity_rules_file /etc/nginx/modsec/main.conf;\n# END PROXYWARDEN WAF"}')
   tn_id=$(echo "$tn_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
   [ -n "$tn_id" ] || die "WAF-ON host for the tuning gate failed: $tn_create"
   sleep 2
