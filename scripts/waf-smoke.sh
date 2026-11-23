@@ -297,6 +297,8 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   tpl_name=$(execsvc 'grep -h "^server_name" /etc/nginx/conf.d/production.conf.template 2>/dev/null | head -1' || true)
   echo "$tpl_name" | grep -q 'nginxproxymanager' \
     && die "the admin template still says nginxproxymanager: $tpl_name"
+  fs_resid=$(execsvc "grep -ri 'nginx-proxy-manager|NginxProxyManager' /etc/nginx/conf.d/ /etc/logrotate.d/ /var/www/html/ /root/.bashrc 2>/dev/null | head -3")
+  [ -z "$fs_resid" ] || die "upstream references in the shipped filesystem: $fs_resid"
   pass "debrand: image labels + API schema + admin template clean"
 else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
