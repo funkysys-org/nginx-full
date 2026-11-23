@@ -277,7 +277,10 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   [ -n "$mb_id" ] || die "proxy host with max_body_size creation failed: $mb_create"
   sleep 2
   execsvc "grep -q 'client_max_body_size 32m;' /data/nginx/proxy_host/$mb_id.conf" \
-    || die "the rendered proxy host config lacks client_max_body_size"
+    || { echo "[smoke] mb_create response: $mb_create"; \
+         echo "[smoke] the rendered conf ($mb_id):"; \
+         execsvc "cat /data/nginx/proxy_host/$mb_id.conf" || true; \
+         die "the rendered proxy host config lacks client_max_body_size"; }
   mb_bad=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/nginx/proxy-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
     -d '{"domain_names":["body-bad.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"max_body_size":"32m; return 200;"}')
