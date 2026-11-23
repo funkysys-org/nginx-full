@@ -197,7 +197,7 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   # un-parsed (exactly how the trailing-';' SecAction shipped CI-green).
   tn_create=$(curl -s -X POST "$API/nginx/proxy-hosts" \
     -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
-    -d '{"domain_names":["tuning-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"advancedConfig":"# BEGIN PROXYWARDEN WAF\nmodsecurity on;\nmodsecurity_rules_file /etc/nginx/modsec/main.conf;\n# END PROXYWARDEN WAF"}')
+    -d '{"domain_names":["tuning-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"advanced_config":"# BEGIN PROXYWARDEN WAF\nmodsecurity on;\nmodsecurity_rules_file /etc/nginx/modsec/main.conf;\n# END PROXYWARDEN WAF"}')
   tn_id=$(echo "$tn_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
   [ -n "$tn_id" ] || die "WAF-ON host for the tuning gate failed: $tn_create"
   sleep 2
