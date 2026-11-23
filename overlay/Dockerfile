@@ -16,7 +16,7 @@
 # instead of the fresh local build. ":app-build" is local-only by contract;
 # the workflow always passes it explicitly anyway.
 ARG WAF_BASE_IMAGE=ghcr.io/funkysys-org/nginx-full:app-build
-ARG OPENRESTY_VERSION=1.31.8.1
+ARG OPENRESTY_VERSION=1.31.9.1
 ARG MODSEC_VERSION=3.0.17
 ARG MODSEC_NGINX_VERSION=1.0.4
 ARG CRS_VERSION=v4.30.0

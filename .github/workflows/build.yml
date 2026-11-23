@@ -21,7 +21,7 @@ on:
 
 env:
   # OUR pins now — this repo owns the base build (Phase A sovereignty).
-  OPENRESTY_VERSION: '1.31.8.1'
+  OPENRESTY_VERSION: '1.31.9.1'
   NODE_MAJOR: '26'
   LUA_VERSION: '5.1.5'
   LUAROCKS_VERSION: '3.13.0'
@@ -54,7 +54,13 @@ jobs:
       - name: Assert workflow pins match the vendored bake hcl
         run: |
           set -eu
-          for pin in OPENRESTY_VERSION NODE_MAJOR LUA_VERSION LUAROCKS_VERSION; do
+          # OPENRESTY_VERSION is WORKFLOW-AUTHORITATIVE: the bake receives it
+          # via --var (the vendored hcl default is the upstream record at the
+          # pinned commit, kept byte-faithful — it is NOT our pin). The
+          # version's real gate is the smoke's nginx -V assert on the built
+          # binary. Only the toolchain pins (node/lua/luarocks) must match
+          # the vendored hcl defaults.
+          for pin in NODE_MAJOR LUA_VERSION LUAROCKS_VERSION; do
             wf=$(printenv "$pin")
             hcl=$(awk -v p="$pin" '
               $0 ~ "^variable \"" p "\" {" { inblock=1; next }
