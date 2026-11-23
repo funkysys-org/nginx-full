@@ -188,7 +188,17 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
     -d '{"value":"disabled","meta":{"enabled":false}}'
   pass "2FA policy round-trip + admin exemption"
 
-  # 13) WAF tuning API (Wave 3): the canary-runbook CLI, panel-side
+  # 13) WAF tuning API (Wave 3): the canary-runbook CLI, panel-side.
+  # A WAF-ON proxy host must be LIVE during the PUT: the handler's reload
+  # runs nginx -t, and only a live host's conf includes the modsec files —
+  # without one, a broken directive in rules-before.conf sails through
+  # un-parsed (exactly how the trailing-';' SecAction shipped CI-green).
+  tn_create=$(curl -s -X POST "$API/nginx/proxy-hosts" \
+    -H "Authorization: Bearer $admin_tok" -H 'Content-Type: application/json' \
+    -d '{"domain_names":["tuning-smoke.test"],"forward_scheme":"http","forward_host":"backend","forward_port":80,"waf_detect":true}')
+  tn_id=$(echo "$tn_create" | sed -n 's/.*"id" *: *\([0-9]*\).*/\1/p' | head -1)
+  [ -n "$tn_id" ] || die "WAF-ON host for the tuning gate failed: $tn_create"
+  sleep 2
   w_code=$(curl -s -o /dev/null -w '%{http_code}' "$API/waf/tuning" -H "Authorization: Bearer $admin_tok")
   [ "$w_code" = "200" ] || die "GET /api/waf/tuning -> $w_code (want 200)"
   wput=$(curl -s -X PUT "$API/waf/tuning" \
@@ -205,7 +215,8 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
   echo "$wclr" | grep -q '"exclusions":\[\]' || die "WAF tuning cleanup failed: $wclr"
   execsvc 'grep -vq "SecRuleRemoveById" /data/modsec/rules-after.conf' \
     || die "rules-after.conf still has exclusions after cleanup"
-  pass "WAF tuning API: exclusions + paranoia round-trip, files written"
+  curl -s -o /dev/null -X DELETE "$API/nginx/proxy-hosts/$tn_id" -H "Authorization: Bearer $admin_tok"
+  pass "WAF tuning API: exclusions + paranoia round-trip, files written (nginx -t gate live)"
 
   # 14) WAF activity report (Wave 4): the attacks from check 5 must show up
   wafr=$(curl -s "$API/waf/report" -H "Authorization: Bearer $admin_tok")
