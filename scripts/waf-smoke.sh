@@ -333,7 +333,7 @@ fi
   args_line=$(execsvc 'nginx -V 2>&1 | sed -n "s/^configure arguments: //p"')
   echo "$args_line" | grep -q 'luajit' \
     && die "luajit in the configure args: $args_line"
-  bundle_res=$(execsvc "grep -rlE 'by_lua|content_by_lua|access_by_lua|more_set_headers|more_clear_headers|set_misc|ngx_lua|lua_code_cache' /etc/nginx/ /data/nginx/ 2>/dev/null | head -3")
+  bundle_res=$(execsvc "grep -rlE 'by_lua|content_by_lua|access_by_lua|echo_start|echo_exec|set_misc|ngx_lua|lua_code_cache' /etc/nginx/ /data/nginx/ 2>/dev/null | head -3")
   [ -z "$bundle_res" ] || die "openresty-bundle directives in shipped configs: $bundle_res"
   pass "phase-b: plain nginx banner, no luajit, zero bundle directives"
 

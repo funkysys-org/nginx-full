@@ -94,6 +94,9 @@ RUN set -eu; \
     mv /tmp/nginx-${NGINX_VERSION} /tmp/nginx-src; \
     git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module \
       /tmp/nginx-src/ngx_http_geoip2_module
+    git clone --depth 1 --branch v0.42 \
+      https://github.com/openresty/headers-more-nginx-module \
+      /tmp/nginx-src/headers-more-nginx-module
 
 # Direct configure (Phase B): no bundle wrapper and no LuaJIT env — the
 # captured -V args ARE the full configure line; add our four WAF dynamic
@@ -114,6 +117,7 @@ RUN set -eu; \
        objs/ngx_http_vhost_traffic_status_module.so \
        objs/ngx_http_cache_purge_module.so \
        objs/ngx_http_geoip2_module.so \
+       objs/ngx_http_headers_more_filter_module.so \
        objs/ngx_http_brotli_filter_module.so \
        objs/ngx_http_brotli_static_module.so /tmp/out/
 
@@ -190,6 +194,7 @@ COPY --from=builder /tmp/out/ngx_http_modsecurity_module.so /usr/lib/nginx/modul
 COPY --from=builder /tmp/out/ngx_http_vhost_traffic_status_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_cache_purge_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_geoip2_module.so /usr/lib/nginx/modules/
+COPY --from=builder /tmp/out/ngx_http_headers_more_filter_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_brotli_filter_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/out/ngx_http_brotli_static_module.so /usr/lib/nginx/modules/
 COPY --from=builder /tmp/crs /usr/local/modsecurity/crs
@@ -296,7 +301,8 @@ RUN set -eu; \
       > /etc/nginx/modules/vts.conf; \
     printf 'load_module /usr/lib/nginx/modules/ngx_http_cache_purge_module.so;\n' \
       > /etc/nginx/modules/cache-purge.conf; \
-    printf 'load_module /usr/lib/nginx/modules/ngx_http_geoip2_module.so;\n' \
+    printf 'load_module /usr/lib/nginx/modules/ngx_http_geoip2_module.so;\n'
+    printf 'load_module /usr/lib/nginx/modules/ngx_http_headers_more_filter_module.so;\n' \
       > /etc/nginx/modules/geoip2.conf; \
     printf 'load_module /usr/lib/nginx/modules/ngx_http_brotli_filter_module.so;\n' \
       > /etc/nginx/modules/brotli-filter.conf; \

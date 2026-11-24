@@ -35,3 +35,10 @@ now covers the certbot/certbot-node images only — this Dockerfile carries
 funkysys-org labels from line one. The upstream-sync rules below apply to
 the parts that still track upstream (the app tree via vendor/npm), NOT to
 the base build.
+
+One bundle module SURVIVES, deliberately: **headers-more-nginx-module v0.42**
+(clone-pinned in build-nginx.sh and overlay/Dockerfile) — proxywarden-hardening.conf
+uses `more_clear_headers Server;` (the full Server-header erase; server_tokens
+only trims the version). The 2026-11-24 complete audit (both repos, every
+shipped surface) found it is the ONLY bundle directive in the chain. The smoke
+tripwire (check 18) sanctions the more_* family and keeps banning lua/echo/set_misc.

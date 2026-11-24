@@ -42,6 +42,14 @@ mv "/tmp/nginx-${NGINX_VERSION}" /tmp/nginx-src
 # needs the module source at exactly this path.
 git clone 'https://github.com/leev/ngx_http_geoip2_module.git' /tmp/nginx-src/ngx_http_geoip2_module
 
+# headers-more v0.42 — the ONE former-bundle module this chain genuinely
+# uses: proxywarden-hardening.conf erases the Server header entirely
+# (server_tokens only trims the version). Pinned at the bundle's last
+# version; loaded by the overlay's printf chain, audited 2026-11-24.
+git clone --depth 1 --branch v0.42 \
+	'https://github.com/openresty/headers-more-nginx-module.git' \
+	/tmp/nginx-src/headers-more-nginx-module
+
 cd /tmp/nginx-src
 
 ./configure \
@@ -85,7 +93,8 @@ cd /tmp/nginx-src
 	--with-stream_ssl_module \
 	--with-stream_ssl_preread_module \
 	--with-http_v3_module \
-	--add-dynamic-module=/tmp/nginx-src/ngx_http_geoip2_module
+	--add-dynamic-module=/tmp/nginx-src/ngx_http_geoip2_module \
+	--add-dynamic-module=/tmp/nginx-src/headers-more-nginx-module
 
 make -j"$(nproc)"
 
