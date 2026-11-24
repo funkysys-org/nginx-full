@@ -301,9 +301,10 @@ RUN set -eu; \
       > /etc/nginx/modules/vts.conf; \
     printf 'load_module /usr/lib/nginx/modules/ngx_http_cache_purge_module.so;\n' \
       > /etc/nginx/modules/cache-purge.conf; \
-    printf 'load_module /usr/lib/nginx/modules/ngx_http_geoip2_module.so;\n'
-    printf 'load_module /usr/lib/nginx/modules/ngx_http_headers_more_filter_module.so;\n' \
+    printf 'load_module /usr/lib/nginx/modules/ngx_http_geoip2_module.so;\n' \
       > /etc/nginx/modules/geoip2.conf; \
+    printf 'load_module /usr/lib/nginx/modules/ngx_http_headers_more_filter_module.so;\n' \
+      > /etc/nginx/modules/headers-more.conf; \
     printf 'load_module /usr/lib/nginx/modules/ngx_http_brotli_filter_module.so;\n' \
       > /etc/nginx/modules/brotli-filter.conf; \
     printf 'load_module /usr/lib/nginx/modules/ngx_http_brotli_static_module.so;\n' \
