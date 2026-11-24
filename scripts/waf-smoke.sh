@@ -266,6 +266,15 @@ if [ "$setup_code" = "200" ] || [ "$setup_code" = "201" ]; then
     || die "armed-window nginx -t did not even reach the DB — unexpected: $arm_t"
   execsvc 'rm -f /data/geoip/GeoLite2-Country.mmdb && sh /etc/s6-overlay/scripts/geoip2-arm.sh >/dev/null && test ! -f /etc/nginx/conf.d/geoip2.conf' \
     || die "armer did not remove geoip2.conf after the DB disappeared"
+  # The ^() empty-regex signature must NEVER appear in ANY rendered conf:
+  # an empty country_deny is a TRUTHY empty JS array — the template's own
+  # check cannot catch it, and the empty regex matches the EMPTY country
+  # code (every client the DB cannot resolve: private IPs first) = 403.
+  # The generator's flag is the gate; this sweep is the tripwire.
+  execsvc "grep -rlF '~ ^()' /data/nginx/" >/dev/null 2>&1 \
+    && die "empty country_deny rendered the ^() regex (the unresolved-client 403 bug)"
+  pass "geoblocking: no empty ^() signature in any rendered conf"
+
   pass "geoblocking: dormant host renders + serves, malformed codes rejected, armer round-trips"
 
   # 16) max_body_size (Wave 6): proxy host carries the upload limit into
