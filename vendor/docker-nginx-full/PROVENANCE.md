@@ -18,3 +18,20 @@
   this tree — a sync that changes build inputs (like the security backports)
   must re-run the full pipeline; the args themselves must stay byte-identical
   to the official image's, or the parity gate dies (by design).
+
+## Phase B — the engine fork (2026-11-24, branch phase-b/nginx-base)
+
+The base is OURS now: plain **nginx.org source** (`docker/scripts/build-nginx.sh`,
+tarball sha256-pinned per version in the script's case block) — no OpenResty
+bundle, no LuaJIT, no lua-resty stack. Zero Lua ever executed in this chain
+(audit: no `by_lua` / `resty.` / `openidc` / `cjson` reference in any shipped
+config, template or script), and the bundle lag on nginx security releases
+cost two manual bridge-patch waves (h2 + security-1.31.9-batch, both
+superseded). The Commit row above = the FORK POINT, kept for history: the
+tree diverges from it and is no longer re-vendored. The parity gate's tier-1
+official-image comparison retired with the reference; the self-oracle
+(`parity/our-configure-args.txt`) is the gate. The build-time debrand patch
+now covers the certbot/certbot-node images only — this Dockerfile carries
+funkysys-org labels from line one. The upstream-sync rules below apply to
+the parts that still track upstream (the app tree via vendor/npm), NOT to
+the base build.

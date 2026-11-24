@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main]
+    branches: [main, phase-b/nginx-base]
     paths:
       - 'vendor/**'
       - 'scripts/**'
@@ -21,10 +21,8 @@ on:
 
 env:
   # OUR pins now — this repo owns the base build (Phase A sovereignty).
-  OPENRESTY_VERSION: '1.31.9.1'
+  NGINX_VERSION: '1.31.9'
   NODE_MAJOR: '26'
-  LUA_VERSION: '5.1.5'
-  LUAROCKS_VERSION: '3.13.0'
   NPM_VERSION: '2.17.0'   # app-layer pin (A1) + parity reference
   NPM_COMMIT: '5c8aec9bdeca0a2fb6a71e060ec598aa6eddd186'   # the v2.17.0 tag sha (label metadata)
   NGINX_FULL_COMMIT: '38654e0738a6c19578e0045678480622e48473878c'  # vendored base tree (PROVENANCE-gated)
@@ -54,13 +52,12 @@ jobs:
       - name: Assert workflow pins match the vendored bake hcl
         run: |
           set -eu
-          # OPENRESTY_VERSION is WORKFLOW-AUTHORITATIVE: the bake receives it
-          # via --var (the vendored hcl default is the upstream record at the
-          # pinned commit, kept byte-faithful — it is NOT our pin). The
-          # version's real gate is the smoke's nginx -V assert on the built
-          # binary. Only the toolchain pins (node/lua/luarocks) must match
-          # the vendored hcl defaults.
-          for pin in NODE_MAJOR LUA_VERSION LUAROCKS_VERSION; do
+          # Phase B: NGINX_VERSION is WORKFLOW-AUTHORITATIVE (the bake
+          # receives it via --var); the overlay's args-stage asserts the
+          # built binary's banner against it, and the parity gate re-checks.
+          # The toolchain pin that must match the vendored hcl default:
+          # NODE_MAJOR only (the lua/luarocks pins retired with the bundle).
+          for pin in NODE_MAJOR; do
             wf=$(printenv "$pin")
             hcl=$(awk -v p="$pin" '
               $0 ~ "^variable \"" p "\" {" { inblock=1; next }
@@ -122,10 +119,8 @@ jobs:
             --file docker/docker-bake.hcl \
             --progress=plain \
             --var DOCKER_IMAGE="${IMAGE}" \
-            --var OPENRESTY_VERSION="${OPENRESTY_VERSION}" \
+            --var NGINX_VERSION="${NGINX_VERSION}" \
             --var NODE_MAJOR="${NODE_MAJOR}" \
-            --var LUA_VERSION="${LUA_VERSION}" \
-            --var LUAROCKS_VERSION="${LUAROCKS_VERSION}" \
             --set "common.platforms=linux/amd64" \
             --set "certbot-node.output=type=docker" \
             certbot-node
@@ -154,7 +149,7 @@ jobs:
       - name: Build the NPM-equivalent app image (A1)
         run: |
           set -eu
-          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          APP_TAG="${NPM_VERSION}-nginx${NGINX_VERSION}"
           # The app builds under a tag that is NEVER PUBLISHED (":app-build"):
           # BuildKit resolves a FROM-tag from the REGISTRY whenever the tag
           # exists there — the WAF overlay was therefore consuming the STALE
@@ -175,7 +170,7 @@ jobs:
       - name: App smoke (boots, stock UI served, nginx -t)
         run: |
           set -eu
-          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          APP_TAG="${NPM_VERSION}-nginx${NGINX_VERSION}"
           # The stock prepare service HARD-FAILS unless both /data and
           # /etc/letsencrypt are mounts — run the image like the real world does.
           docker volume create appsmoke-data >/dev/null
@@ -194,11 +189,11 @@ jobs:
       - name: Build the WAF overlay image (A2b)
         run: |
           set -eu
-          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          APP_TAG="${NPM_VERSION}-nginx${NGINX_VERSION}"
           WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}-brotli${BROTLI_VERSION#v}"
           docker build -f overlay/Dockerfile \
             --build-arg WAF_BASE_IMAGE="${IMAGE}:app-build" \
-            --build-arg OPENRESTY_VERSION \
+            --build-arg NGINX_VERSION \
             --build-arg MODSEC_VERSION \
             --build-arg MODSEC_NGINX_VERSION \
             --build-arg CRS_VERSION \
@@ -216,7 +211,7 @@ jobs:
       - name: WAF smoke (payload matrix)
         run: |
           set -eu
-          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          APP_TAG="${NPM_VERSION}-nginx${NGINX_VERSION}"
           WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}-brotli${BROTLI_VERSION#v}"
           WAF_IMAGE="${IMAGE}:${WAF_TAG}" docker compose -f docker-compose.waf-test.yml up -d
           for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8181/ >/dev/null 2>&1 && break; sleep 2; done
@@ -226,12 +221,12 @@ jobs:
       - name: Push (pins in the tags, no floating tags)
         run: |
           set -eu
-          BASE_TAG="${IMAGE}:certbot-node-or${OPENRESTY_VERSION}-node${NODE_MAJOR}"
+          BASE_TAG="${IMAGE}:certbot-node-nginx${NGINX_VERSION}-node${NODE_MAJOR}"
           docker tag "${IMAGE}:certbot-node" "$BASE_TAG"
           docker push "$BASE_TAG"
-          docker tag "${IMAGE}:app-build" "${IMAGE}:${NPM_VERSION}-or${OPENRESTY_VERSION}"
-          docker push "${IMAGE}:${NPM_VERSION}-or${OPENRESTY_VERSION}"
-          APP_TAG="${NPM_VERSION}-or${OPENRESTY_VERSION}"
+          docker tag "${IMAGE}:app-build" "${IMAGE}:${NPM_VERSION}-nginx${NGINX_VERSION}"
+          docker push "${IMAGE}:${NPM_VERSION}-nginx${NGINX_VERSION}"
+          APP_TAG="${NPM_VERSION}-nginx${NGINX_VERSION}"
           WAF_TAG="${APP_TAG}-modsec${MODSEC_VERSION}-crs${CRS_VERSION#v}-vts${VTS_VERSION#v}-purge${CACHE_PURGE_VERSION}-brotli${BROTLI_VERSION#v}"
           docker push "${IMAGE}:${WAF_TAG}"
 
@@ -239,19 +234,21 @@ jobs:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - name: Has upstream moved (openresty / NPM source)?
+      - name: Has upstream moved (nginx.org / NPM source)?
         run: |
           set -eu
-          or_latest=$(git ls-remote --tags --refs https://github.com/openresty/openresty 'refs/tags/v*' \
-            | sed 's|.*refs/tags/v||' | sort -V | tail -1)
+          # Phase B: the base is OURS (plain nginx.org source) — the base-tree
+          # drift check retired with the openresty reference. What still
+          # matters: nginx.org shipping a release newer than our pin, and the
+          # NPM app source moving (the vendored app still tracks it).
+          ngx_latest=$(curl -fsSL https://nginx.org/en/download.html \
+            | grep -oE 'nginx-[0-9]+\.[0-9]+\.[0-9]+' | sort -uV | tail -1 | sed 's/^nginx-//')
           npm_latest=$(git ls-remote --tags --refs https://github.com/NginxProxyManager/nginx-proxy-manager 'refs/tags/v2*' \
             | sed 's|.*refs/tags/v||' | sort -V | tail -1)
-          dnf_master=$(git ls-remote https://github.com/nginxproxymanager/docker-nginx-full refs/heads/master | cut -f1)
-          echo "openresty latest: ${or_latest} | our pin: ${OPENRESTY_VERSION}"
+          echo "nginx.org latest: ${ngx_latest} | our pin: ${NGINX_VERSION}"
           echo "NPM source latest: ${npm_latest} | our pin: ${NPM_VERSION}"
-          echo "docker-nginx-full master: ${dnf_master:0:12} | vendored: ${NGINX_FULL_COMMIT:0:12}"
-          if [ "$or_latest" != "$OPENRESTY_VERSION" ] || [ "$npm_latest" != "$NPM_VERSION" ] || [ "$dnf_master" != "$NGINX_FULL_COMMIT" ]; then
-            echo "::error::UPSTREAM MOVED (openresty ${or_latest} / NPM ${npm_latest} / base tree ${dnf_master:0:12}). Pins are a human decision — bump in workflow env AND vendored bake defaults, rebuild, re-run the parity gate."
+          if [ "$ngx_latest" != "$NGINX_VERSION" ] || [ "$npm_latest" != "$NPM_VERSION" ]; then
+            echo "::error::UPSTREAM MOVED (nginx ${ngx_latest} / NPM ${npm_latest}). Pins are a human decision — bump in workflow env + build-nginx.sh sha case + parity oracle, rebuild, re-run."
             exit 1
           fi
           echo "no drift — pins current"

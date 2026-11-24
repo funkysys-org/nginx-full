@@ -2,11 +2,11 @@
 # ---------------------------------------------------------------------------
 # WAF overlay (Phase A2b): the former funkysys-org/npm-modsec layer, merged
 # into this pipeline. Builds libmodsecurity + the connector + vts + cache
-# purge against the SAME openresty the base bake just built, and assembles
+# purge against the SAME nginx the base bake just built, and assembles
 # the WAF image on top of OUR app image.
 #
 # The args stage keeps the proven self-validation: configure args are
-# extracted FROM THE BINARY and the openresty version asserted against the
+# extracted FROM THE BINARY and the nginx version asserted against the
 # pin — the ABI gate stays, even inside one pipeline.
 # ---------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@
 # instead of the fresh local build. ":app-build" is local-only by contract;
 # the workflow always passes it explicitly anyway.
 ARG WAF_BASE_IMAGE=ghcr.io/funkysys-org/nginx-full:app-build
-ARG OPENRESTY_VERSION=1.31.9.1
+ARG NGINX_VERSION=1.31.9
 ARG MODSEC_VERSION=3.0.17
 ARG MODSEC_NGINX_VERSION=1.0.4
 ARG CRS_VERSION=v4.30.0
@@ -30,18 +30,18 @@ ARG BROTLI_MODULE_SHA=53e0fb55f250f48fe80c0ddbf6c0f7103cdbaae1
 ARG BUILD_JOBS=6
 
 # --- stage 1: capture exact configure args from the base binary ------------
-# ABI guardrail: if the base's openresty drifts from the pin, fail loudly.
+# ABI guardrail: if the base's nginx drifts from the pin, fail loudly.
 FROM ${WAF_BASE_IMAGE} AS args
-ARG OPENRESTY_VERSION
+ARG NGINX_VERSION
 RUN set -eu; \
-    nginx -V 2>&1 | sed -n 's/^nginx version: openresty\///p' > /tmp/version; \
-    grep -qx "${OPENRESTY_VERSION}" /tmp/version \
-      || { echo "FATAL: base image has openresty $(cat /tmp/version), pinned ${OPENRESTY_VERSION} — update pins"; exit 1; }; \
+    nginx -V 2>&1 | sed -n 's/^nginx version: nginx\///p' > /tmp/version; \
+    grep -qx "${NGINX_VERSION}" /tmp/version \
+      || { echo "FATAL: base image has nginx $(cat /tmp/version), pinned ${NGINX_VERSION} — update pins"; exit 1; }; \
     nginx -V 2>&1 | sed -n 's/^configure arguments: //p' > /tmp/args
 
 # --- stage 2: build libmodsecurity + connector + vts + purge + fetch CRS ----
 FROM debian:trixie-slim AS builder
-ARG MODSEC_VERSION MODSEC_NGINX_VERSION OPENRESTY_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION BROTLI_VERSION BROTLI_MODULE_SHA BUILD_JOBS
+ARG MODSEC_VERSION MODSEC_NGINX_VERSION NGINX_VERSION CRS_VERSION VTS_VERSION CACHE_PURGE_VERSION BROTLI_VERSION BROTLI_MODULE_SHA BUILD_JOBS
 RUN set -eu; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -85,31 +85,24 @@ RUN set -eu; \
       = "$(git -C /tmp/ngx_brotli/deps/brotli rev-parse "${BROTLI_VERSION}^{}")" ] \
       || { echo "FATAL: deps/brotli is not at ${BROTLI_VERSION} — refusing to build"; exit 1; }
 
-# openresty source (release tarball) at the pinned version; geoip2 at the
-# literal path baked into the base binary's configure arguments.
+# nginx source (nginx.org release tarball) at the pinned version; geoip2
+# at the literal path baked into the base binary's configure arguments.
 RUN set -eu; \
     cd /tmp; \
-    wget -q https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz; \
-    tar xzf openresty-${OPENRESTY_VERSION}.tar.gz; \
-    mkdir -p /tmp/openresty; \
+    wget -q https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz; \
+    tar xzf nginx-${NGINX_VERSION}.tar.gz; \
+    mv /tmp/nginx-${NGINX_VERSION} /tmp/nginx-src; \
     git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module \
-      /tmp/openresty/ngx_http_geoip2_module
+      /tmp/nginx-src/ngx_http_geoip2_module
 
-# Two-step configure (spike finding): the -V args are NGINX-level args —
-# never feed them to the openresty bundle wrapper. Wrapper = prep only
-# (extracts bundle into build/, builds LuaJIT), then nginx's own configure
-# inside build/nginx-*/ with the verbatim args + our dynamic modules.
+# Direct configure (Phase B): no bundle wrapper and no LuaJIT env — the
+# captured -V args ARE the full configure line; add our four WAF dynamic
+# modules and build them against this exact source.
 COPY --from=args /tmp/args /tmp/nginx-args
 RUN set -eu; \
-    cd /tmp/openresty-${OPENRESTY_VERSION}; \
-    ./configure > /tmp/or-prep.log 2>&1; \
-    NGX="$(ls -d build/nginx-*/)"; \
-    LJLIB="$(dirname "$(find "$PWD/build/luajit-root" -name 'libluajit-5.1.a' -print -quit)")"; \
-    LJINC="$(dirname "$(find "$PWD/build/luajit-root" -name 'lauxlib.h' -path '*include*' -print -quit)")"; \
-    export LUAJIT_LIB="$LJLIB" LUAJIT_INC="$LJINC" \
-           MODSECURITY_INC=/usr/local/modsecurity/include \
+    export MODSECURITY_INC=/usr/local/modsecurity/include \
            MODSECURITY_LIB=/usr/local/modsecurity/lib; \
-    cd "$NGX"; \
+    cd /tmp/nginx-src; \
     ./configure $(cat /tmp/nginx-args) \
       --add-dynamic-module=/tmp/ModSecurity-nginx \
       --add-dynamic-module=/tmp/nginx-module-vts \

@@ -1,29 +1,25 @@
 #!/bin/bash
-# Parity gate (Phase A, security-carriage form): our built base must produce
-# a binary whose CONFIGURE ARGS are byte-identical to the official image at
-# the pinned NPM version — OR (the sanctioned exception: our openresty
-# deliberately rides AHEAD of the official image for security fixes) to OUR
-# OWN committed oracle, which moves only in a reviewed commit.
+# Parity gate (Phase B form): the base is OURS — plain nginx.org source,
+# no OpenResty bundle. The tier-1 comparison against the official NPM
+# image (jc21's openresty-based reference) RETIRED with the engine swap:
+# see PROVENANCE.md. What remains is the strongest form of the gate that
+# era produced: the SELF-ORACLE — the committed configure-args line the
+# binary must reproduce byte-for-byte, which moves only in a reviewed
+# commit.
 #
-#   args:  ours == official            → PASS (tier 1, the normal case)
-#          ours == committed self-     → PASS (tier 2, security carriage;
-#               oracle                    the self-oracle diff vs the
-#                                         official args is the reviewed
-#                                         change, e.g. bumped bundled
-#                                         module versions)
-#          else                        → FAIL, printing the captured args
-#                                         and the file to create
-#   version: ours >= official          → PASS (ours newer = the documented
-#                                         deviation; ours OLDER = fail)
+#   version: banner == nginx/${NGINX_VERSION}     → else FAIL (the pin lies)
+#   args:    ours == parity/our-configure-args   → PASS
+#            else                                 → FAIL, printing the
+#                                                     captured args and
+#                                                     the file to commit
 #
-# The official-image-vs-committed-oracle check stays: it guards against the
-# official image being silently re-released under us.
+# A new base shape (version bump, configure change) therefore costs one
+# reviewed commit by design: run 1 dies here and prints the args; the
+# human reviews against the release notes; commit; run 2 ships.
 set -eu
 
 OURS="${1:?usage: parity-check.sh <our-image>}"
-NPM_VERSION="${NPM_VERSION:-2.17.0}"
-OFFICIAL="jc21/nginx-proxy-manager:${NPM_VERSION}"
-ORACLE="parity/oracle-configure-args-${NPM_VERSION}.txt"
+NGINX_VERSION="${NGINX_VERSION:?set NGINX_VERSION}"
 SELF_ORACLE="parity/our-configure-args.txt"
 
 ver()  { docker run --rm --entrypoint nginx "$1" -V 2>&1 | sed -n 's/^nginx version: //p'; }
@@ -31,34 +27,21 @@ args() { docker run --rm --entrypoint nginx "$1" -V 2>&1 | sed -n 's/^configure 
 
 fail() { echo "::error::parity: $*" >&2; exit 1; }
 
-docker pull "$OFFICIAL" >/dev/null
-
 our_ver="$(ver "$OURS")"
-off_ver="$(ver "$OFFICIAL")"
+[ "$our_ver" = "nginx/${NGINX_VERSION}" ] \
+  || fail "base binary is '${our_ver}', pinned nginx/${NGINX_VERSION} — the pin and the build disagree"
+
 our_args="$(args "$OURS")"
-off_args="$(args "$OFFICIAL")"
 
-# Version: equal, or ours NEWER (the security carriage). Older = fail.
-[ "$our_ver" = "$off_ver" ] \
-  || [ "$(printf '%s\n%s\n' "$off_ver" "$our_ver" | sort -V | tail -1)" = "$our_ver" ] \
-  || fail "our nginx version ($our_ver) is OLDER than the official image ($off_ver) — never acceptable"
-
-# Args: tier 1 (byte-identical to the official image)
-if [ "$our_args" = "$off_args" ]; then
-  args_note="byte-identical to $OFFICIAL"
-elif [ -f "$SELF_ORACLE" ] && [ "$our_args" = "$(cat "$SELF_ORACLE")" ]; then
-  args_note="match the committed self-oracle (security carriage ahead of the official image — reviewed)"
-else
-  echo "::error::parity: configure args match NEITHER the official image NOR the committed self-oracle." >&2
-  echo "  Official:  $off_args" >&2
-  echo "  Ours:      $our_args" >&2
-  echo "  If this is the intentional openresty security carriage: review the diff above," >&2
-  echo "  then commit ours to $SELF_ORACLE and re-run. Nothing ships until then." >&2
-  exit 1
+if [ -f "$SELF_ORACLE" ] && [ "$our_args" = "$(cat "$SELF_ORACLE")" ]; then
+  echo "PARITY OK: nginx/${NGINX_VERSION} — configure args match the committed self-oracle"
+  exit 0
 fi
 
-# The official image must still match the committed official oracle.
-[ "$(args "$OFFICIAL")" = "$(cat "$ORACLE")" ] \
-  || fail "official image no longer matches the committed oracle — investigate upstream before proceeding"
-
-echo "PARITY OK: $our_ver — args $args_note; official matches the committed oracle"
+echo "::error::parity: configure args do NOT match the committed self-oracle." >&2
+echo "  Committed: $(cat "$SELF_ORACLE" 2>/dev/null || echo '<missing>')" >&2
+echo "  Ours:      ${our_args}" >&2
+echo "  If this is the intentional base change (version bump, configure edit —" >&2
+echo "  review the diff against the release notes), commit ours to ${SELF_ORACLE}" >&2
+echo "  and re-run. Nothing ships until then." >&2
+exit 1
