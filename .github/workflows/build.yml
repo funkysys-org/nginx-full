@@ -218,7 +218,10 @@ jobs:
           bash scripts/waf-smoke.sh
           docker compose -f docker-compose.waf-test.yml down -v
 
+      # Branch discipline: phase-b builds + gates + smokes, but ONLY main
+      # publishes (the branch publishes nothing until it merges).
       - name: Push (pins in the tags, no floating tags)
+        if: github.ref == 'refs/heads/main'
         run: |
           set -eu
           BASE_TAG="${IMAGE}:certbot-node-nginx${NGINX_VERSION}-node${NODE_MAJOR}"
