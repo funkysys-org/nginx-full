@@ -45,7 +45,7 @@ git clone 'https://github.com/leev/ngx_http_geoip2_module.git' /tmp/nginx-src/ng
 cd /tmp/nginx-src
 
 ./configure \
-	--prefix=/etc/nginx \
+	--prefix=/etc/nginx/nginx \
 	--with-cc-opt='-O2' \
 	--sbin-path=/usr/sbin/nginx \
 	--modules-path=/usr/lib/nginx/modules \
