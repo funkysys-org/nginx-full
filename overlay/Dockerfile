@@ -93,7 +93,7 @@ RUN set -eu; \
     tar xzf nginx-${NGINX_VERSION}.tar.gz; \
     mv /tmp/nginx-${NGINX_VERSION} /tmp/nginx-src; \
     git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module \
-      /tmp/nginx-src/ngx_http_geoip2_module
+      /tmp/nginx-src/ngx_http_geoip2_module; \
     git clone --depth 1 --branch v0.42 \
       https://github.com/openresty/headers-more-nginx-module \
       /tmp/nginx-src/headers-more-nginx-module
