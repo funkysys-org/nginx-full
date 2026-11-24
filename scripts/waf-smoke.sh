@@ -320,5 +320,22 @@ else
   say "skip: API source check (first-boot user creation returned $setup_code — volume not fresh)"
 fi
 
+  # 18) Phase B (the engine swap): the binary is PLAIN nginx — the banner
+  #     must not identify as openresty, the configure line must carry no
+  #     luajit rpath, and NOTHING we ship may use an openresty-bundle-only
+  #     directive. The base audit proved the negative once; this makes it
+  #     permanent.
+  ver_line=$(execsvc 'nginx -V 2>&1 | head -1')
+  echo "$ver_line" | grep -q 'openresty' \
+    && die "the binary still identifies as openresty: $ver_line"
+  echo "$ver_line" | grep -qE '^nginx version: nginx/[0-9]+\.[0-9]+\.[0-9]+$' \
+    || die "unexpected nginx banner: $ver_line"
+  args_line=$(execsvc 'nginx -V 2>&1 | sed -n "s/^configure arguments: //p"')
+  echo "$args_line" | grep -q 'luajit' \
+    && die "luajit in the configure args: $args_line"
+  bundle_res=$(execsvc "grep -rlE 'by_lua|content_by_lua|access_by_lua|more_set_headers|more_clear_headers|set_misc|ngx_lua|lua_code_cache' /etc/nginx/ /data/nginx/ 2>/dev/null | head -3")
+  [ -z "$bundle_res" ] || die "openresty-bundle directives in shipped configs: $bundle_res"
+  pass "phase-b: plain nginx banner, no luajit, zero bundle directives"
+
 echo
-echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, brotli br live, attacks 403, audit log written, API docs served, WAF audit in API sources, static host e2e works"
+echo "SMOKE OK: UI up, nginx -t clean, seed present, benign 200, brotli br live, attacks 403, audit log written, API docs served, WAF audit in API sources, static host e2e works, phase-b engine clean"
