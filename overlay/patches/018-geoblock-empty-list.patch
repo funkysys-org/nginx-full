@@ -22,7 +22,7 @@ index 64b5cec..fdf8e44 100644
  			if (
 diff --git a/docker/rootfs/etc/s6-overlay/s6-rc.d/prepare/25-geoblock.sh b/docker/rootfs/etc/s6-overlay/s6-rc.d/prepare/25-geoblock.sh
 new file mode 100755
-index 0000000..207636d
+index 0000000..02f9720
 --- /dev/null
 +++ b/docker/rootfs/etc/s6-overlay/s6-rc.d/prepare/25-geoblock.sh
 @@ -0,0 +1,17 @@
@@ -39,7 +39,7 @@ index 0000000..207636d
 +BLOCK=/etc/nginx/conf.d/geoip2.conf
 +if [ -f "$MMDB" ]; then
 +  printf 'load_module /usr/lib/nginx/modules/ngx_http_geoip2_module.so;\n' > "$LOAD"
-+  printf 'geoip2 %s {\n  auto_reload 5m;\n  $geoip2_data_country_code country_code;\n}\n' "$MMDB" > "$BLOCK"
++  printf 'geoip2 %s {\n  auto_reload 5m;\n  $geoip2_data_country_code country_iso_code;\n}\n' "$MMDB" > "$BLOCK"
 +else
 +  rm -f "$LOAD" "$BLOCK"
 +fi
